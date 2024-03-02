@@ -1,0 +1,214 @@
+#!/usr/bin/perl
+
+# Turn on autoflush
+$|++;
+
+#
+use POSIX;
+use Device::SerialPort 0.12;
+use Switch;
+use Time::Local;
+use File::stat;
+#use DBI;
+use Scalar::Util qw(looks_like_number);
+
+$PGM_NAME = "logPower";
+$LOGDIR    = "/home/pi/furnace";         # path to data file
+$LOGFILE   = "logPower.log";             # file name to output to
+#$PORT      = "/dev/pwrArduino";          # port to watch
+$PORT      = "/dev/ttyUSB1";          # port to watch
+
+$errcnt = 0;	#How many "."'s. Every 10? print a \n
+
+# Last mod date - save current mode date. If it changes die and nany program will restart new version
+open(my $fh, "<", $LOGDIR."/".$PGM_NAME) or die "Cannot open read handle to myself";
+my $fh_updateTime = stat($fh)->mtime;
+close($fh);
+
+
+# Serial Settings
+#print "Opening COM port...\n";
+
+my $ob = Device::SerialPort->new ($PORT) || die "Can't Open $PORT: $!";
+$ob->baudrate(38400)   || die "failed setting baudrate";
+$ob->parity("none")    || die "failed setting parity";
+$ob->databits(8)       || die "failed setting databits";
+$ob->handshake("none") || die "failed setting handshake";
+$ob->write_settings    || die "no settings";
+
+#trim subroutine
+sub trim($) {
+ my $str = shift;
+ $str =~ s/^\s+//;
+ $str =~ s/\s+$//;
+ return $str;
+}
+
+print "port open\n";
+$rawData = $ob->input;
+print "dump first input - may have line noise: $rawData\n";
+
+#return minutes from time variable
+sub minute {
+	$tm = shift;
+	($sec,$min,$curr_hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime($tm);
+
+	return $min;
+}
+
+#return hour from time variable
+sub hour {
+	$tm = shift;
+	($sec,$min,$curr_hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime($tm);
+
+	return $curr_hour;
+}
+
+#return day from time variable
+sub mday {
+	$tm = shift;
+	($sec,$min,$curr_hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime($tm);
+
+	return $mday;
+}
+
+#log watt hour metric, uses current time for data
+sub logWH
+{
+	$w = shift;
+	$h = shift;
+
+	print "TTL WH of $w for hour ending $h\n";
+
+	$tm = time;
+	($gwt_sec, $gwt_min, $gwt_hr, $gwt_md, $gwt_mon, $gwt_yr, $gwt_wday, $gwt_yday, $gwt_dst) = localtime($tm);
+	$tm = mktime (0,0,$gwt_hr, $gwt_md, $gwt_mon, $gwt_yr, $gwt_wday, $gwt_yday);
+	system("rrdtool update /home/pi/furnace/kWh.rrd $tm:$w");
+}
+
+#log record watts
+sub logWatts
+{
+}
+
+#global variables
+
+$hr = hour(time);
+$WHttl = 0;
+$WHprev = -1;
+$WHvalue = 0;
+$WHrollover = 471852;
+$bLogWH = false; # do not log first partial hour.
+
+while(1) {
+
+	$rawData = $ob->input;
+	@data = split(' ',$rawData);
+	if (length($rawData) < 1) {
+		# Do nothing
+	}
+	elsif (index($rawData, "#") != -1) {
+			print "[$rawData]\n";
+	}
+	# if @data element count < 11 then dump debug and skip
+	elsif (@data < 11) {
+		#debugging
+		foreach my $i (0 .. $#data) { print " $i - [$data[$i]] / "; }
+	}
+        else
+        {
+		my $dt = time;
+		print "Time: $dt ";
+
+		if (looks_like_number($data[11])) {
+			#Flags. There's a low battery in there somewhere...
+			# 8/29/2019 - guessing that the battery flag is the MSB
+			# noticed that as batteries were dying, there was 8 bits
+			# printed (F: 11111110). And after the batteries were
+			# replaced, only 7 bits were printed (F: 1111110)
+			# So it seems that if there are 7 bits, then the batteries
+			# might be dying. Also, looking back in the logs, the
+			# batteries were weak, but the unit kept chugging just
+			# fine for 3 months. Don't want to swap too soon.
+			#
+			# So maybe, call for help if the batteries are weak
+			# and, the day of month mod 10 is zero? (ie: 10, 20 or 30th)
+
+			print "F: $data[11] ";
+
+
+			if ( $data[11] eq "11111110" && 
+				(mday(time) % 5) == 0 &&	# only nag every 5 days
+				(hour(time) == 12) &&		# only nag at 12:30PM
+				(minute(time) == 30) )
+			{
+				my $msg = "Power Monitor Batteries are low. $dt";
+				print "$dt: $msg";
+				system("/home/pi/furnace/tweet d ehud42 $msg");
+			}
+		}
+
+		if (looks_like_number($data[7])) {
+			# should have a Watt reading
+			print "W: $data[7] ";
+			system("rrdtool update /home/pi/furnace/powerUsage.rrd $dt:$data[7]");
+		}
+
+		if (looks_like_number($data[3])) {
+			# there's cummulative WH data - see below for collecting hourly
+			print "WH: $data[3] ";
+
+			# Process WattHours
+			# This is a cummulative counter from the PowerMonitor.
+			# The Arduino takes the 16 bit counter, multiplies by the power factor
+			# and sends the cummulative WattHours tracked.
+			# Due to the 16 bit counter, and the 7.2 power factor, this value will
+			# roll over at 471,852WH.
+			#
+			# At the start of each hour log the WH for the previous hour.
+
+			#prime loop (don't record initial partial hour)
+			#may want to use file storage to deal with restarts
+			$curr_hr = hour(time);
+
+			if ($WHttl == 0) {
+				$hr = $curr_hr;
+			}
+
+			if ($data[3] != $WHvalue && $data[3] > 0) {
+				$WHvalue = $data[3];
+				$WHcurr = $WHvalue;
+				if ($WHcurr < $WHprev) {
+					$WHdelta = ($WHrollover - $WHprev) + $WHcurr;
+					print "WH rollover detected ";
+				} else {
+					$WHdelta = $WHcurr - $WHprev;
+				}
+				if ($WHprev >= 0) {
+					$WHttl += $WHdelta;
+					print "WHttl: $WHttl ";
+				}
+				$WHprev = $WHcurr;
+	
+				if ($curr_hr != $hr) {
+					if ($bLogWH) {
+						logWH($WHttl, $curr_hr);
+					}
+					$WHttl = 0;
+					$hr = $curr_hr;
+					$bLogWH = true;
+				}
+			}
+			print "\n";
+		}
+	}
+	open(my $fh, "<", $LOGDIR."/".$PGM_NAME) or die "Cannot open read handle to myself";
+	my $fh_testupdateTime = stat($fh)->mtime;
+	close($fh);
+	if ($fh_testupdateTime != $fh_updateTime) {
+       		# Exit. There is a "nanny" process that will restart if this process exits
+       		die "Found new version to run";
+	}
+	sleep(15);
+}
+

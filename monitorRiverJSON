@@ -1,0 +1,80 @@
+#!/usr/bin/perl
+
+use LWP::Simple;                # From CPAN
+use JSON qw( decode_json );     # From CPAN
+use Data::Dumper;               # Perl core module
+use strict;                     # Good practice
+use warnings;                   # Good practice
+use Switch;
+use File::stat;
+use Time::Local;
+use Try::Tiny;
+
+open (my $logfile, '>>'."/home/pi/furnace/riverLevel.txt");
+
+my $riverurl = "https://wwdresources.winnipeg.ca/OpenDataPublicApi/ScadaReading/GetLatestScadaReadings";
+my $json = '{ "method": null, "headers": { "Content-Type": [ "application/json" ] }, "body": null, "url": null, "withCredentials": null, "responseType": null }';
+my $decoded_json = "";
+
+try {
+  my $req = HTTP::Request->new( 'POST', $riverurl );
+  $req->header( 'Content-type' => 'application/json' );
+  $req->header( 'Accept' => 'application/json, text/plain, */*' );
+  #$req->header( 'Content-Length' => '175' );
+  $req->content( $json );
+
+  my $userAgent = LWP::UserAgent->new;
+  my $resp = $userAgent->request( $req );
+
+  #print $resp, "\n";
+  #print $req, "\n";
+  #print $resp->decoded_content, "\n";
+  $decoded_json = decode_json( $resp->decoded_content );
+  #print Dumper $decoded_json;
+
+} catch {
+  my $e_time = time;
+  print "$e_time : Fetching data failed. \n";
+  die;
+};
+
+
+my $wplvl = "U";	# West Perimeter level
+my $chwdlvl = "U";# Charleswood / Moray level
+my $stjlvl = "U";	# St. James / Rte 90 level
+my $marylvl = "U";# Maryland level
+my $osblvl = "U";	# Osborne level
+
+foreach my $reading ( @{ $decoded_json } )
+{
+	my $river = $reading->{RiverName};
+	my $location = $reading->{Location};
+	my $value = $reading->{Value};
+	if ( $river eq 'Assiniboine' )
+	{
+		#print	"RN:", $river, " LN:", $location, " Val: ", $value, "\n";
+		if ( (defined $value) && ($value > 200) )
+		{
+			switch ($location) {
+				case "West Perimeter" { $wplvl = $value }
+				case "Charleswood" { $chwdlvl = $value }
+				case "St. James" { $stjlvl = $value }
+				case "Maryland" { $marylvl = $value }
+				case "Osborne" { $osblvl = $value }
+			}
+		}
+	}
+}
+
+my $rrd_time = time;
+
+if ( (!defined $ARGV[0]) || ( $ARGV[0]  ne "debug" ) )
+{
+	print $logfile "cmd: rrdtool update /home/pi/furnace/riverLevels.rrd $rrd_time:$wplvl:$wplvl:$chwdlvl:$stjlvl:$marylvl:$osblvl \n";
+	system( "rrdtool update /home/pi/furnace/riverLevel.rrd $rrd_time:$wplvl");
+	system( "rrdtool update /home/pi/furnace/riverLevels.rrd $rrd_time:$wplvl:$wplvl:$chwdlvl:$stjlvl:$marylvl:$osblvl");
+} else {
+	print Dumper $decoded_json;
+}
+
+close $logfile;

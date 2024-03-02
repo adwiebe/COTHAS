@@ -1,0 +1,69 @@
+#!/usr/bin/perl -w
+# getArduino.pl
+#
+# Based on Original Perl code by Paul Mutton.
+# See https://www.jibble.org/currentcost/
+# which was then Updated for CC128 by Mark E Taylor. April 2009.
+# https://metphoto.homeunix.net/met_current/
+# https://metphoto.net
+#Adapted to read the USB serial port on an Arduino Nano clone
+# by Tardus, November 2013, http://tardus.net
+
+use strict;
+use Time::Local;
+use File::stat;
+use Device::SerialPort qw( :PARAM :STAT 0.07 );
+
+my $PGM_NAME = "logCurrentMonitor";
+my $LOGDIR    = "/home/pi/furnace";         # path to data file
+my $LOGFILE   = "logCurrent.log";             # file name to output to
+
+
+# Last mod date - save current mode date. If it changes die and nany program will restart new version
+open(my $fh, "<", $LOGDIR."/".$PGM_NAME) or die "Cannot open read handle to myself";
+my $fh_updateTime = stat($fh)->mtime;
+close($fh);
+
+
+# OPTION - could pass in port. Todo is to tinker with USB setup to get the
+# Uno clone to register as a consistent ttything.
+# port now passed via argument to this script, typically ttyUSB0 or ttyUSB1
+#print "$ARGV[0]\n";
+#my $PORT = "$ARGV[0]";
+
+my $PORT = "/dev/ttyUSB1";
+my $ob = Device::SerialPort->new($PORT);
+$ob->baudrate(115200); # default speed for Arduino serial over USB
+    #$ob->databits(8);
+    #$ob->parity("none");
+    #$ob->stopbits(1);
+    $ob->write_settings;
+open(SERIAL, "+>$PORT");
+
+
+while (my $line = <SERIAL>) {
+    # print "[$line]" ;
+    my @array = split ' ', $line;
+    if (@array) {
+      print "(@array[0])";
+      my @volts = split ':', @array[0];
+      if (@volts > 1) {
+        # print "v0=0  v1=@volts[0] v2=@volts[1] v3=@volts[2]\n";
+        my $tm = time;
+	my $r_cmd =  "rrdtool update /home/pi/furnace/current_monitor.rrd $tm:U:@volts[0]:@volts[1]:@volts[2]";
+	print "$r_cmd\n";
+	system($r_cmd);
+      } else { print "volts bombed\n"; }
+    } else { print "blank line\n"; }
+
+    # Test update time of the file that is this program. If it has changed, then someone
+    # has made an update. Die and let the crontab respawn job launch the next best thing!
+    open(my $fh, "<", $LOGDIR."/".$PGM_NAME) or die "Cannot open read handle to myself";
+    my $fh_testupdateTime = stat($fh)->mtime;
+    close($fh);
+    if ($fh_testupdateTime != $fh_updateTime) {
+            # Exit. There is a "nanny" process that will restart if this process exits
+            die "Found new version to run";
+    }
+
+}

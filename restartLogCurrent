@@ -1,0 +1,20 @@
+#!/usr/bin/perl
+#
+
+# this is run on a frequent schedule from crontab
+
+# check processes for current monitor. Note that "ps -e" truncates long process names.
+
+if (`ps -e | grep logCurrentM`) 
+{
+;
+} else {
+
+	# restart process
+
+	my $st = time;
+	print "STARTING: $st\n";
+
+	system("mv /home/pi/furnace/logs/current.log /home/pi/furnace/logs/current_$st.log");	
+	system("/home/pi/furnace/logCurrentMonitor >> /home/pi/furnace/logs/current.log 2>&1 &") ;
+}

@@ -1,0 +1,13 @@
+#!/usr/bin/perl
+
+use POSIX;
+
+print "Usage: mkNixTime s m h d M Y\n";
+$l_time = time;
+print "Now: $l_time\n";
+
+print "You want: $ARGV[0], $ARGV[1], $ARGV[2], $ARGV[3], $ARGV[4], $ARGV[5]\n";
+$unixtime = mktime ($ARGV[0], $ARGV[1], $ARGV[2], $ARGV[3], $ARGV[4], $ARGV[5]);
+
+print "$unixtime\n";
+

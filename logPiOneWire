@@ -1,0 +1,52 @@
+#!/usr/bin/perl
+$|++;
+#
+# Created: Nov 16, 2022
+#
+# Scans for 1-Wire DS18B20 temperature sensors connected to GPIO 4
+# Assumes Pi config setup etc
+#
+
+use warnings;
+use 5.010;
+
+use POSIX;
+use Time::Local;
+use Time::HiRes ('sleep');	# fine gran sleep command to reduce wait/polling
+use Data::Dumper;
+
+#######################################
+#
+# Initial parameters, etc
+#
+#######################################
+$VerMajor = "1";
+$VerMinor = "0";
+
+print $VerMajor.".".$VerMinor."\n";
+
+while (1) {
+	print "Scan for devices... ";
+	
+	$devPath = "/sys/bus/w1/devices";
+	opendir my $dir, $devPath or die "no open dir: $1";
+	my @files = grep(/28/,readdir($dir));
+	closedir $dir;
+
+	my $devCnt = scalar @files;
+
+	print $devCnt."\n";
+
+	foreach $dev ( @files ) {
+		print "$dev = ";
+		my $devHandle = $devPath."/".$dev."/w1_slave";
+		open file1, $devHandle or die "Bork: $devHandle";
+		my $devCRC = <file1>;
+		my $devVal = <file1>;
+		# This assumes last 5 characters are the temperature. Does not work for low temps.
+		$devVal = substr($devVal, -6,3)/10;
+		print $devVal."\n";
+		close file1; 
+	}
+	sleep(60);
+}

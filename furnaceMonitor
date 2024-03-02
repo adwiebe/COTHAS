@@ -1,0 +1,559 @@
+#!/usr/bin/perl
+#
+# furnaceMonitor
+#
+# combined master script that monitors furnace, env canada and temperature of house
+#
+
+use POSIX;
+use File::stat;
+use Net::Twitter;
+use LWP::Simple;
+use Time::Local;
+use Device::SerialPort 0.12;
+use Switch;
+use DBI;
+
+#declare dbUpdate function
+sub dbUpdate;
+
+#declare twitter function
+sub tweet;
+
+#declare trim function
+sub trim($);
+
+#declare getWpgTemp();
+sub getWpgTemp();
+
+#declare getOneWireData();
+sub getOneWireData();
+
+#declare cooling calculation - pass in seconds
+# sub calcCoolingEnergy;
+
+#declare heating calculation - pass in seconds & stage
+sub calcHeatingEnergy;
+
+# globals for up & downstairs temperatures - setting to 0 to prevent uninitialized variable weirdness
+$Tup = 0;
+$Tdown = 0;
+$YwgTemp = 0;
+
+$LOGDIR    = "/home/pi/furnace";  # path to data file
+$PGM_NAME  = "furnaceMonitor";      # name of this script
+$LOGFILE   = "furnace";             # file name to output to
+$RRDFILE   = "fm.rrd";              # rrd database
+$PORT      = "/dev/ttyS0";          # port to watch (on motherboard)
+$OneWire_Port = "/dev/ttyS1";       # One Wire port (on box)
+
+# Serial Settings - for furnace monitor
+
+my $ob = Device::SerialPort->new ($PORT) || die "Can't Open $PORT: $!";
+$ob->baudrate(2400)   || die "failed setting baudrate";
+$ob->parity("none")    || die "failed setting parity";
+$ob->databits(8)       || die "failed setting databits";
+$ob->handshake("none") || die "failed setting handshake";
+$ob->write_settings    || die "no settings";
+
+# Serial Settings - for One Wire devices
+
+my $ser_OneWire = Device::SerialPort->new($OneWire_Port) || die "Can't Open $OneWire_Port: $!";
+$ser_OneWire->baudrate(9600) || die "failed - OW - baudrate";
+$ser_OneWire->parity("none") || die "failed - OW - parity";
+$ser_OneWire->databits(8)    || die "failed - OW - databits";
+$ser_OneWire->handshake("none") || die "failed - OW - handshake";
+$ser_OneWire->write_settings || die "no settings - OW";
+
+#open log file
+$s_logdate = "000000";
+&CreateLogFile;
+
+
+#
+$f_tmr = 0;
+$f_state = 0;
+$f_start = time;
+$f_stage = 1;
+
+$ac_state = 0;
+$ac_start = time;
+
+$f_halfhour = 0;
+$Wh = 0;
+$Wc = 0;
+
+# get current hour
+($sec,$min,$curr_hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime($f_start);
+
+# get update time stamp for file / script. This will let us know that the file has
+# changed and we should exit and let the new version take over.
+# For logging, upon startup notify that a new version is started.
+
+open(my $fh, "<", $LOGDIR."/".$PGM_NAME) or die "Cannot open read handle to myself";
+my $fh_updateTime = stat($fh)->mtime;
+&tweet("d ehud42 Starting furnaceMonitor with file stamp: $fh_updateTime with current time stamp=$f_start");
+close($fh);
+
+#######################################################################################
+#
+# Main loop
+#
+# Do this forever (unless file update time is different - only checked on the hour
+#
+#######################################################################################
+while(1) {
+
+# send 'A', wait for status
+	# print "Send A\n";
+	$ob->write("A");
+
+	# print "Wait for character\n";
+	my $char = $ob->read(2);
+
+	# print $char;
+	# print "\n";
+
+	if ($char) {
+
+		# Heating turned on
+	 	if ($char == "3") { 
+			if ($f_state == 0) {
+				$f_state = 1;
+				$f_stage = 1;	#starting stage
+				$f_start = &PrintTimeStamp;
+				# print logfile ", Heating turned on., 0\n";
+				&dbUpdate;
+			}
+		} 
+		# Cooling turned on
+		if ($char == "5") {
+			if ($ac_state == 0) {
+				$ac_state = 1;
+				$ac_start = &PrintTimeStamp;
+				# print logfile ", Cooling turned on. , 0\n";
+				&dbUpdate;
+			}
+		}
+		# No heating or cooling
+		if ($char == "1") {
+			if ($f_state == 1) {
+				$f_state = 0;
+				$f_end = &PrintTimeStamp - $f_start;
+				print logfile "Heating turned off., " . $f_end . " Old Wh=".$Wh." Current stage=".$f_stage."\n";
+
+				$Wh += &calcHeatingEnergy($f_end, $f_stage);
+
+				###############################
+				print logfile " New Wh=".$Wh." and stage=".$f_stage."\n";
+				&dbUpdate;
+
+			}
+			if ($ac_state == 1) {
+				$ac_state = 0;
+				$ac_end = &PrintTimeStamp - $ac_start;
+				# print logfile ", Cooling turned off., " . $ac_end . "\n";
+
+				#$Wc = $Wc + ($ac_end * 0.0004);
+				$Wc += &calcCoolingEnergy($ac_end);
+
+				&dbUpdate;
+
+			}
+		}
+	} else {
+		&PrintTimeStamp;
+		#print ", char was null, 0\n";
+		print logfile ", [".$char."] char was null, 0\n";
+	}
+
+	sleep(2);	# sleep for 2 second (1 second is not enough for stamp)
+	# &CreateLogFile;
+
+	#
+	# test for 1/2 hour - at 30 minutes past hour, get Env Canada temp for the hour and local temps
+	#
+	$l_time = time;
+	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime($l_time);
+
+	if ($min == 30 && $f_halfhour == 0) {
+		$f_halfhour = 1;
+		$YwgTemp = getWpgTemp();
+
+		&getOneWireData;
+
+		&dbUpdate;
+
+	} elsif ($min != 30) {
+		$f_halfhour = 0;
+	}
+
+	# test for new hour
+	# if new hour, print kWh summary and reset current hour
+	if ($curr_hour != $hour) {
+		if ($ac_state == 1) {
+			$ac_end = $l_time - $ac_start;
+			$ac_start = $l_time;
+			$Wc += &calcCoolingEnergy($ac_end);
+		}
+		if ($f_state == 1) {
+			$f_end = $l_time - $f_start;
+			$f_start = $l_time;
+
+			print logfile "Hour change. Still heating. Current seconds=".$f_end." current stage=".$f_stage."\n";
+			$Wh += &calcHeatingEnergy($f_end, $f_stage);	
+			print logfile "Hour change. Post energy calculation Wh=".$Wh." Stage value=".$f_stage."\n";
+		}
+
+		$rrd_time = time;
+		($gwt_sec, $gwt_min, $gwt_hr, $gwt_md, $gwt_mon, $gwt_yr, $gwt_wday, $gwt_yday, $gwt_dst) = localtime($rrd_time);
+		$rrd_time = mktime (0,0,$gwt_hr, $gwt_md, $gwt_mon, $gwt_yr, $gwt_wday, $gwt_yday);
+		system("rrdtool update ".$LOGDIR."/".$RRDFILE." $rrd_time:U:U:U:$Wh:$Wc");
+
+		#generate graphs # As of Feb 2019 this is farmed out to the crontab as a separate process
+		# system("$LOGDIR/genGraphs >> $LOGDIR/logs/genGraphs.log 2>&1");
+
+		# generate text message for log & twitter
+		$rounded_Wh = sprintf("%.2f", $Wh);
+		$rounded_Wc = sprintf("%.2f", $Wc);
+ 		$log_entry = "Stats for hour:".$curr_hour." Ywg Temp:".$YwgTemp."C-Up:".$Tup."C-Down:".$Tdown."Heating:".$rounded_Wh."kWh Cooling:".$rounded_Wc."kWh. For more details: http://flyinglow.ca/furnace\n";
+
+		print logfile $log_entry;
+		&tweet($log_entry);
+
+		&dbUpdate;
+
+ 		$curr_hour = $hour;
+ 		$Wh = 0;
+ 		$Wc = 0;
+
+		# check for new version of script
+		open(my $fh, "<", $LOGDIR."/".$PGM_NAME) or die "Cannot open read handle to myself";
+		my $fh_testupdateTime = stat($fh)->mtime;
+		close($fh);
+		if ($fh_testupdateTime != $fh_updateTime) {
+			# Exit. There is a "nanny" process that will restart if this process exits
+			die "Found new version to run";
+		}
+	}
+
+}
+
+# we never get here, but for completeness close the file handle
+close (logfile);
+
+
+#subroutine to obtain, print and return a timestamp.
+sub PrintTimeStamp {
+	$l_time = time;
+
+	# printf logfile $l_time . ", ";
+	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime($l_time);
+	# printf logfile "%4d-%02d-%02d %02d:%02d:%02d", $year+1900,$mon+1,$mday,$hour,$min,$sec;
+
+	return $l_time;
+}
+
+#create new log file
+sub CreateLogFile {
+	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime(time);
+	$s_newdate = sprintf "%02d%02d%02d", $mon+1, $mday, $year-100;
+
+	# at midnight close current file and open new file.
+	# before closing check to see if furnace / ac is running at midnight
+	# if so, 'turn it off', close log file, create new, 'turn it on'
+	# probably not ideal, but should work.
+	if ($s_logdate != $s_newdate) {
+		if ($f_state == 1)
+		{
+			$clf_ts = &PrintTimeStamp;
+			$f_end = $clf_ts - $f_start;
+			print logfile ", Heating turned off(EOF)., " . $f_end . "\n";
+			$f_start = $clf_ts;
+		}
+		if ($ac_state == 1)
+		{
+			$clf_ts = &PrintTimeStamp;
+			$ac_end = $clf_ts - $ac_start;
+			print logfile ", Cooling turned off(EOF)., " . $ac_end . "\n";
+			$ac_start = $clf_ts;
+		}
+
+		$s_logdate = $s_newdate;
+		close (logfile);
+		open (logfile, '>>'.$LOGDIR."/".$LOGFILE.$s_logdate.".log");
+
+		$devnulltime = &PrintTimeStamp;
+		print logfile ", FurnaceLog Version 3.2\n";
+
+		if ($f_state == 1)
+		{
+			$f_start = &PrintTimeStamp;
+			print logfile ", Heating turned on (SOF)., 0\n";
+		}
+		if ($ac_state == 1)
+		{
+			$ac_start = &PrintTimeStamp;
+			print logfile ", Cooling turned on (SOF)., 0\n";
+		}
+		#make file handle HOT to prevent buffering
+		select((select(logfile), $|=1)[0]);
+	}
+}
+
+
+
+#trim subroutine
+sub trim($) {
+ my $str = shift;
+ $str =~ s/^\s+//;
+ $str =~ s/\s+$//;
+ return $str;
+}
+
+#getWpgTemp subroutine
+sub getWpgTemp() {
+ $temp = 1000;
+
+eval {
+ $url = sprintf "http://weather.gc.ca/rss/city/mb-38_e.xml";
+ $content = get($url);
+
+ $pattern = "\&deg;C";
+
+ foreach $line (split /\n/ , $content) {
+  if ($line =~ m/$pattern/ && $line =~ m/Temperature/) {
+   $line = trim($line);
+   $line = substr ($line, index($line, "Temperature")+17);
+   $line = substr ($line, 0, index($line, $pattern));
+   $temp = trim($line);
+  }
+ }
+ $rrd_time = time;
+
+# Change time to 15 minutes after current hour. If read at 2:30PM, record as if 2:05
+# Actual temperatures and kWh readings will be recorded on the hour precisely
+
+ ($gwt_sec, $gwt_min, $gwt_hr, $gwt_md, $gwt_mon, $gwt_yr, $gwt_wday, $gwt_yday, $gwt_dst) = localtime($rrd_time);
+ $rrd_time = mktime (0,15,$gwt_hr, $gwt_md, $gwt_mon, $gwt_yr, $gwt_wday, $gwt_yday);
+
+ if ($temp < 1000) {
+  system("rrdtool update ".$LOGDIR."/".$RRDFILE." $rrd_time:$temp:U:U:U:U");
+ }
+
+ }; warn $@ if $@;
+
+ return $temp;
+}
+
+# Get local temperatures (upstairs / downstairs )
+sub getOneWireData()
+{
+#print "Priming...\n";
+
+	$ser_OneWire->write("P0W0ccS044");
+	$ser_OneWire->write_drain;
+	sleep(2);
+	$ser_OneWire->write("P0W0ccW0be");
+	$ser_OneWire->write_drain;
+	sleep(1);
+	$ser_OneWire->write("R0");
+	$ser_OneWire->write_drain;
+	$ser_OneWire->write("R0");
+	sleep(3);
+
+#read temp from probe '0'
+#print "Reading port 0...\n";
+
+	$ser_OneWire->write("P0W0ccS044");
+	$ser_OneWire->write_drain;
+	sleep(2);
+	$ser_OneWire->write("P0W0ccW0be");
+	$ser_OneWire->write_drain;
+	sleep(1);
+	$ser_OneWire->write("R0");
+	$ser_OneWire->write_drain;
+	
+	# print "Wait for character\n";
+	my $lowbyte = $ser_OneWire->input;
+	$lowbyte =~ s/\r|\n//g;
+
+	sleep(1);
+	$ser_OneWire->write("R0");
+	$ser_OneWire->write_drain;
+	my $highbyte = $ser_OneWire->input;
+	$highbyte =~ s/\r|\n//g;
+
+	#for temperatures above 0 (which it should always be inside)
+	#one byte should be 0 and the other is Tc * 2.
+	#so to display temp, just take $highbyte/2.
+
+	$Tup = $highbyte / 2;
+
+#wait for bus to clear
+#print "Sleeping....\n";
+sleep(3);
+
+#read temp from probe '1'
+#print "Reading port 1...\n";
+
+	$ser_OneWire->write("P1W1ccS144");
+	$ser_OneWire->write_drain;
+	sleep(2);
+	$ser_OneWire->write("P1W1ccW1be");
+	$ser_OneWire->write_drain;
+	sleep(1);
+	$ser_OneWire->write("R1");
+	$ser_OneWire->write_drain;
+	
+	# print "Wait for character\n";
+	my $upstairs_lowbyte = $ser_OneWire->input;
+	$upstairs_lowbyte =~ s/\r|\n//g;
+
+	sleep(1);
+	$ser_OneWire->write("R1");
+	$ser_OneWire->write_drain;
+	my $upstairs_highbyte = $ser_OneWire->input;
+	$upstairs_highbyte =~ s/\r|\n//g;
+
+	#for temperatures above 0 (which it should always be inside)
+	#one byte should be 0 and the other is Tc * 2.
+	#so to display temp, just take $highbyte/2.
+
+	$Tdown = $upstairs_highbyte / 2;
+
+	$rrd_time = time;
+	if ($Tup < 10) {
+		tweet("Indoor temperature failed to read at $rrd_time. Value=$Tup");
+		$Tup = "U";
+	}
+	if ($Tdown < 12) {
+		tweet("Indoor temp failure at $rrd_time. Tup=$Tup / Tdown=$Tdown");
+		$Tdown = "U";
+	} 
+	system("rrdtool update ".$LOGDIR."/".$RRDFILE." $rrd_time:U:$Tup:$Tdown:U:U");
+}
+
+# sub routine to tweet a status
+# code from here has been moved to the script
+# /home/pi/furnace/tweet
+# This enables better management of code
+sub tweet {
+
+ system("/home/pi/furnace/tweet $_[0]");
+
+}
+
+#declare cooling calculation
+sub calcCoolingEnergy
+{
+	my $energy = $_[0] * 0.0004;	# should be config item
+
+	return $energy;
+}
+
+#declare heating calculation
+sub calcHeatingEnergy #($f_seconds, $f_stage);
+{
+
+	# November 12, 2013 - bug detected where 3rd stage not reached, and re-entry after hour cross incorrectly handled.
+	#
+	# $f_stage is passed by reference and is returned to the caller to be passed back in. This covers the HVAC running
+	# over an Hour marker.
+	# 
+	#
+	# $_[0] = seconds
+	# $_[1] = stage
+
+	$energy = 0;
+	$runSeconds = $_[0];
+
+	###############################
+	# Calc kWh
+	#
+
+
+	# STAGE 1
+
+	if ($runSeconds > 0)
+	{
+		$energy = $runSeconds * 0.00133;
+	}
+
+	if ($runSeconds >= 60 && $_[1] == 1)
+	{
+		$runSeconds -= 60;
+		$_[1] = 2;
+	}
+
+	print logfile "Post stage 1. RunSeconds = ".$runSeconds." energy = ".$energy." stage = ".$_[1]."\n";
+
+
+	# STAGE 2 (kWs includes faster fan speed)
+
+	if ($runSeconds > 0 && $_[1] >= 2)
+	{
+		$energy += $runSeconds * 0.00135;
+	}
+
+	if ($runSeconds >= 60 && $_[1] == 2)
+	{
+		$runSeconds -= 60;
+		$_[1] = 3;
+	}
+
+	print logfile "Post stage 2. RunSeconds = ".$runSeconds." energy = ".$energy." stage = ".$_[1]."\n";
+
+
+	# STAGE 3
+	
+	if ($runSeconds > 0 && $_[1] == 3)
+	{
+		$energy += ($runSeconds * 0.00133);
+	}
+
+	print logfile "Post stage 3. RunSeconds = ".$runSeconds." energy = ".$energy." stage = ".$_[1]."\n";
+
+	return $energy;
+}
+
+#dbUpdate subroutine
+sub dbUpdate
+{
+#do nothing
+}
+
+sub dontodthis
+{
+eval {
+	my $dbh = DBI->connect("DBI:mysql:database=flyinglow_furnace;host=mysql.s412.sureserver.com;port=3306","wsfurnace","laiwong88");
+
+	my $update_time = time;
+
+	my $update_state = "O";
+	
+	if ($f_state) {
+		$update_state = "H";
+	} elsif ($ac_state) {
+		$update_state = "C";
+	}
+
+	my $ttl_kWh = $Wh + $Wc;
+
+	my $filterLife = 0;
+		
+	# insert:
+	#	currentTime	$update_time
+	#	state (H/C/O)	$update_state
+	#	sum(Wh + Wc)	$ttl_kWh
+	#	Tout		$YwgTemp
+	#	Tup		$Tup
+	#	Tdown		$Tdown
+	#	filterLife	$filterLife
+
+	$dbh->do("UPDATE currentState SET state=\"$update_state\", kWh=$ttl_kWh, Tout=$YwgTemp, Tup=$Tup, Tdown=$Tdown, filterLife=$filterLife WHERE rowID=1");
+
+	$dbh->disconnect();
+    }; warn $@ if $@;
+
+}

@@ -1,0 +1,232 @@
+echo Generating Graphs - Master Program
+echo `uptime`
+
+rrdtool graph /home/pi/furnace/house-delta.png --end now --start end-90d \
+--width 600 --height 250 \
+DEF:Tup=/home/pi/furnace/fm_temps.rrd:Tup:AVERAGE \
+DEF:Tdown=/home/pi/furnace/fm_temps.rrd:Tdown:AVERAGE \
+CDEF:Delta=Tup,Tdown,- \
+LINE1:Delta#000000:"Delta" \
+-t"Upstairs - Downstairs delta C"
+
+rrdtool graph /home/pi/furnace/delta_year.png -a PNG --width 1550 --height 100 \
+--end now --start end-13months \
+-u 5 -l -5 \
+DEF:TOut=/home/pi/furnace/outsideTemp.rrd:Tout:AVERAGE \
+DEF:TEC=/home/pi/furnace/fm.rrd:Tout:AVERAGE \
+CDEF:Delta=TOut,TEC,-,-5,5,LIMIT \
+LINE1:Delta#000000:"Delta"
+
+rrdtool graph /home/pi/furnace/delta.png --end now --start end-45d \
+DEF:TOut=/home/pi/furnace/outsideTemp.rrd:Tout:AVERAGE \
+DEF:TEC=/home/pi/furnace/fm.rrd:Tout:AVERAGE \
+CDEF:Delta=TOut,TEC,- \
+LINE1:Delta#000000:"Delta"
+
+rrdtool graph /home/pi/furnace/filter.png --width 1200 --height 250 \
+--end now --start end-400d \
+-u 100 -l 0 \
+DEF:RFilter=/home/pi/furnace/filterLife.rrd:filter:AVERAGE \
+CDEF:Percentage=RFilter,107,-,11,/,100,* \
+LINE1:Percentage#FF0000:"Filter"
+
+rrdtool graph /home/pi/furnace/hotwater.png -a PNG --end now --start end-36h \
+--width 897 --height 504 \
+DEF:top=/home/pi/furnace/hotWater.rrd:Ttop:AVERAGE \
+DEF:bot=/home/pi/furnace/hotWater.rrd:Tbottom:AVERAGE \
+LINE1:top#808000:"Top" \
+LINE1:bot#008080:"Bottom"
+
+rrdtool graph /home/pi/furnace/day.png -a PNG --width 897 --height 504 \
+--end now --start end-36h \
+-u 20 -l 0 -r \
+--vertical-label 'kWh / kW' \
+--right-axis 4:-40 --right-axis-label 'C outside' --right-axis-format %2.0lf \
+DEF:LTout=/home/pi/furnace/fm.rrd:Tout:AVERAGE \
+DEF:LTup=/home/pi/furnace/fm_temps.rrd:Tup:AVERAGE \
+DEF:LTdown=/home/pi/furnace/fm_temps.rrd:Tdown:AVERAGE \
+DEF:LEheat=/home/pi/furnace/fm.rrd:Eheat:AVERAGE \
+DEF:LEcool=/home/pi/furnace/fm.rrd:Ecool:AVERAGE \
+DEF:RFilter=/home/pi/furnace/filterLife.rrd:filter:AVERAGE \
+DEF:Ttop=/home/pi/furnace/hotWater.rrd:Ttop:AVERAGE \
+DEF:Tbot=/home/pi/furnace/hotWater.rrd:Tbottom:AVERAGE \
+DEF:Tmout=/home/pi/furnace/outsideTemp.rrd:Tout:AVERAGE \
+DEF:Tfout=/home/pi/furnace/hrvTemp.rrd:Tfout:AVERAGE \
+DEF:v2hr=/home/pi/furnace/current_monitor.rrd:v2:AVERAGE:step=3600 \
+DEF:v3hr=/home/pi/furnace/current_monitor.rrd:v3:AVERAGE:step=3600 \
+CDEF:w2hr=v2hr,5000,/,150,*,120,* \
+CDEF:w3hr=v3hr,5000,/,150,*,120,* \
+CDEF:kWh=w2hr,w3hr,+ \
+VDEF:TmoutMin=Tmout,MINIMUM \
+VDEF:TmoutMax=Tmout,MAXIMUM \
+VDEF:kWhMin=kWh,MINIMUM \
+GPRINT:TmoutMin:"Min T %5.1lf" \
+GPRINT:TmoutMax:"Max T %5.1lf" \
+GPRINT:kWhMin:"Min Wh %4.0lf" \
+CDEF:ShiftedFilter=RFilter,105,- \
+CDEF:TrendFilter=ShiftedFilter,1000,TREND \
+CDEF:LFilter=RFilter,105,- \
+CDEF:S_LTout=LTout,0.25,*,10,+ \
+CDEF:S_LTup=LTup,0.25,*,10,+ \
+CDEF:S_LTdown=LTdown,0.25,*,10,+ \
+CDEF:S_TT=Ttop,0.5,*,10,- \
+CDEF:S_TB=Tbot,0.5,*,10,- \
+CDEF:S_LTmout=Tmout,0.25,*,10,+ \
+CDEF:S_LTfout=Tfout,0.25,*,10,+ \
+CDEF:c_kWh=kWh,1000,/ \
+AREA:c_kWh#AAAAAA:"Total kWh" \
+AREA:LEheat#FF0000:"Est. kWh heating" \
+AREA:LEcool#0000FF:"Est. kWh A/C" \
+LINE1:LFilter#808080:"Filter" \
+LINE1:S_LTout#000000:"EC YWG C" \
+LINE1:S_LTup#FF0000:"L. Room" \
+LINE1:S_LTdown#c66d00:"Shop temp" \
+LINE1:S_TT#808000:"HW Top" \
+LINE1:S_TB#008080:"HW Bottom" \
+LINE1:S_LTmout#661C1D:"Backyard C" \
+LINE1:S_LTfout#4fcdff:"HRV Fresh-out" \
+-t"Last 36 hours"
+
+rrdtool graph /home/pi/furnace/week.png -a PNG --width 897 --height 504 \
+--end now --start end-1w \
+-u 20 -l 0 -r \
+--vertical-label 'kWh / kW' \
+--right-axis 4:-40 --right-axis-label 'C outside' --right-axis-format %2.0lf \
+DEF:LTout=/home/pi/furnace/fm.rrd:Tout:AVERAGE \
+DEF:LTup=/home/pi/furnace/fm_temps.rrd:Tup:AVERAGE \
+DEF:LEheat=/home/pi/furnace/fm.rrd:Eheat:AVERAGE \
+DEF:LEcool=/home/pi/furnace/fm.rrd:Ecool:AVERAGE \
+DEF:RFilter=/home/pi/furnace/filterLife.rrd:filter:AVERAGE \
+DEF:Ttop=/home/pi/furnace/hotWater.rrd:Ttop:AVERAGE \
+DEF:Tbot=/home/pi/furnace/hotWater.rrd:Tbottom:AVERAGE \
+DEF:Tmout=/home/pi/furnace/outsideTemp.rrd:Tout:AVERAGE \
+DEF:v2hr=/home/pi/furnace/current_monitor.rrd:v2:AVERAGE:step=3600 \
+DEF:v3hr=/home/pi/furnace/current_monitor.rrd:v3:AVERAGE:step=3600 \
+CDEF:w2hr=v2hr,5000,/,150,*,120,* \
+CDEF:w3hr=v3hr,5000,/,150,*,120,* \
+CDEF:kWh=w2hr,w3hr,+ \
+VDEF:TmoutMin=Tmout,MINIMUM \
+VDEF:TmoutMax=Tmout,MAXIMUM \
+GPRINT:TmoutMin:"Min T %5.1lf" \
+GPRINT:TmoutMax:"Max T %5.1lf" \
+CDEF:S_TT=Ttop,0.5,*,10,- \
+CDEF:S_TB=Tbot,0.5,*,10,- \
+CDEF:LFilter=RFilter,105,- \
+CDEF:S_LTout=LTout,0.25,*,10,+ \
+CDEF:S_LTup=LTup,0.25,*,10,+ \
+CDEF:S_LTmout=Tmout,0.25,*,10,+ \
+CDEF:c_kWh=kWh,1000,/ \
+AREA:c_kWh#AAAAAA:"Total kWh" \
+AREA:LEheat#FF0000:"kWh heating" \
+AREA:LEcool#0000FF:"kWh cooling" \
+LINE1:S_LTmout#661C1D:"Out-back" \
+LINE1:LFilter#808080:"Filter" \
+LINE1:S_LTout#000000:"Outside Temp" \
+LINE1:S_LTup#FF0000:"Upstairs temp" \
+LINE1:S_TT#808000:"Top" \
+LINE1:S_TB#008080:"Bottom" \
+-t"Last 7 days"
+
+rrdtool graph /home/pi/furnace/month.png -a PNG --width 897 --height 504 \
+--end now --start end-1m \
+-u 20 -l 0 -X 0 \
+--vertical-label 'kWh / kW' \
+--right-axis 4:-40 --right-axis-label 'C outside' --right-axis-format %2.0lf \
+DEF:LTout=/home/pi/furnace/fm.rrd:Tout:AVERAGE \
+DEF:LTup=/home/pi/furnace/fm_temps.rrd:Tup:AVERAGE \
+DEF:LEheat=/home/pi/furnace/fm.rrd:Eheat:AVERAGE \
+DEF:LEcool=/home/pi/furnace/fm.rrd:Ecool:AVERAGE \
+DEF:LMax_Tout=/home/pi/furnace/fm.rrd:Tout:MAX \
+DEF:LMin_Tout=/home/pi/furnace/fm.rrd:Tout:MIN \
+DEF:MxFilter=/home/pi/furnace/filterLife.rrd:filter:MAX \
+DEF:MFilter=/home/pi/furnace/filterLife.rrd:filter:MIN \
+DEF:Tmout=/home/pi/furnace/outsideTemp.rrd:Tout:AVERAGE \
+DEF:v2hr=/home/pi/furnace/current_monitor.rrd:v2:AVERAGE:step=3600 \
+DEF:v3hr=/home/pi/furnace/current_monitor.rrd:v3:AVERAGE:step=3600 \
+CDEF:w2hr=v2hr,5000,/,150,*,120,* \
+CDEF:w3hr=v3hr,5000,/,150,*,120,* \
+CDEF:kWh=w2hr,w3hr,+ \
+VDEF:TmoutMin=Tmout,MINIMUM \
+VDEF:TmoutMax=Tmout,MAXIMUM \
+GPRINT:TmoutMin:"Min T %5.1lf" \
+GPRINT:TmoutMax:"Max T %5.1lf" \
+CDEF:S_LTout=LTout,0.25,*,10,+ \
+CDEF:S_LTup=LTup,0.25,*,10,+ \
+CDEF:MLFilter=MFilter,105,- \
+CDEF:MxLFilter=MFilter,MxFilter,+,2,/,105,- \
+CDEF:S_LTmout=Tmout,0.25,*,10,+ \
+CDEF:c_kWh=kWh,1000,/ \
+AREA:c_kWh#AAAAAA:"Total kWh" \
+AREA:LEheat#FF0000:"kWh heating" \
+AREA:LEcool#0000FF:"kWh cooling" \
+LINE1:S_LTup#FF0000:"Upstairs temp" \
+LINE1:MxLFilter#FF00A0:"Filter Split" \
+LINE1:S_LTmout#661C1D:"Out-back" \
+-t"Last month"
+
+rrdtool graph /home/pi/furnace/year.png -a PNG --width 1024 --height 504 \
+--end now --start end-55w \
+-g -y none -x none -c CANVAS#E8E8E8 \
+-u 20 -l 0 -X 0 \
+--vertical-label 'kWh / kW' \
+--right-axis 4:-40 --right-axis-label 'C outside' --right-axis-format %2.0lf \
+HRULE:10#000000 \
+HRULE:5#C0C0C0 \
+HRULE:15#C0C0C0 \
+\
+VRULE:`/home/pi/furnace/mkDate 0 `#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 1 `#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 2 `#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 3 `#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 4 `#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 5 `#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 6 `#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 7 `#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 8 `#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 9 `#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 10 `#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 11 `#080808:"":dashes=1,10 \
+\
+DEF:LMax_Tup=/home/pi/furnace/fm.rrd:Tup:MAX \
+DEF:LMax_Tdown=/home/pi/furnace/fm.rrd:Tdown:MAX \
+DEF:LMin_Tup=/home/pi/furnace/fm.rrd:Tup:MIN \
+DEF:LMin_Tdown=/home/pi/furnace/fm.rrd:Tdown:MIN \
+\
+DEF:LAVG_Tup=/home/pi/furnace/fm_temps.rrd:Tup:AVERAGE \
+DEF:LAVG_Tdown=/home/pi/furnace/fm_temps.rrd:Tdown:AVERAGE \
+DEF:LMax_Tout=/home/pi/furnace/fm.rrd:Tout:MAX \
+DEF:LMin_Tout=/home/pi/furnace/fm.rrd:Tout:MIN \
+DEF:LEheat=/home/pi/furnace/fm.rrd:Eheat:AVERAGE \
+DEF:LEcool=/home/pi/furnace/fm.rrd:Ecool:AVERAGE \
+DEF:Out_Max=/home/pi/furnace/outsideTemp.rrd:Tout:MAX \
+DEF:Out_Min=/home/pi/furnace/outsideTemp.rrd:Tout:MIN \
+DEF:MFilter=/home/pi/furnace/filterLife.rrd:filter:MIN \
+DEF:MxFilter=/home/pi/furnace/filterLife.rrd:filter:MAX \
+DEF:kWh_old=/home/pi/furnace/kWh.rrd:kWh:AVERAGE \
+DEF:v2hr=/home/pi/furnace/current_monitor.rrd:v2:AVERAGE:step=3600 \
+DEF:v3hr=/home/pi/furnace/current_monitor.rrd:v3:AVERAGE:step=3600 \
+CDEF:w2hr=v2hr,5000,/,150,*,120,* \
+CDEF:w3hr=v3hr,5000,/,150,*,120,* \
+CDEF:kWh=w2hr,w3hr,+ \
+\
+CDEF:Old_Avg_Tin=LMax_Tup,LMax_Tdown,+,LMin_Tup,+,LMin_Tdown,+,4,/,0.25,*,10,+ \
+\
+CDEF:Avg_Tout=LMax_Tout,LMin_Tout,+,2,/,0.25,*,10,+ \
+CDEF:Avg_Tin=LAVG_Tup,LAVG_Tdown,+,2,/,0.25,*,10,+ \
+CDEF:Avg_OutsideProbe=Out_Max,Out_Min,+,2,/,0.25,*,10,+ \
+CDEF:L_Filter=MFilter,MxFilter,+,2,/,105,130,LIMIT,105,- \
+CDEF:c_kWh_old=kWh_old,1000,/ \
+CDEF:c_kWh=kWh,1000,/ \
+\
+AREA:c_kWh_old#AAAAAA \
+AREA:c_kWh#AAAAAA:"Total kWh" \
+AREA:LEheat#FF0000:"kWh heating" \
+AREA:LEcool#0000FF:"kWh cooling" \
+\
+LINE1:L_Filter#080808:"Filter" \
+LINE1:Old_Avg_Tin#090099 \
+LINE1:Avg_Tin#090099:"Inside Temp" \
+LINE1:Avg_OutsideProbe#4D0000:"Outside Probe" \
+-t"Last year"
+
+

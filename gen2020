@@ -1,0 +1,67 @@
+echo `uptime`
+
+rrdtool graph /home/pi/furnace/2020year.png -a PNG --width 1024 --height 504 \
+--start 20200101 --end 20201231 \
+-g -y none -x none -c CANVAS#E8E8E8 \
+-u 20 -l 0 -X 0 \
+--vertical-label 'kWh' \
+--right-axis 4:-40 --right-axis-label 'C outside' --right-axis-format %2.0lf \
+HRULE:10#000000 \
+HRULE:5#C0C0C0 \
+HRULE:15#C0C0C0 \
+\
+VRULE:`/home/pi/furnace/mkDate 0 2020`#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 1 2020`#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 2 2020`#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 3 2020`#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 4 2020`#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 5 2020`#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 6 2020`#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 7 2020`#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 8 2020`#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 9 2020`#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 10 2020`#080808:"":dashes=1,10 \
+VRULE:`/home/pi/furnace/mkDate 11 2020`#080808:"":dashes=1,10 \
+\
+DEF:LAVG_Tup=/home/pi/furnace/fm_temps.rrd:Tup:AVERAGE \
+DEF:LAVG_Tdown=/home/pi/furnace/fm_temps.rrd:Tdown:AVERAGE \
+DEF:LMax_Tout=/home/pi/furnace/fm.rrd:Tout:MAX \
+DEF:LMax_Tup=/home/pi/furnace/fm.rrd:Tup:MAX \
+DEF:LMax_Tdown=/home/pi/furnace/fm.rrd:Tdown:MAX \
+DEF:LMin_Tout=/home/pi/furnace/fm.rrd:Tout:MIN \
+DEF:LMin_Tup=/home/pi/furnace/fm.rrd:Tup:MIN \
+DEF:LMin_Tdown=/home/pi/furnace/fm.rrd:Tdown:MIN \
+DEF:LEheat=/home/pi/furnace/fm.rrd:Eheat:AVERAGE \
+DEF:LEcool=/home/pi/furnace/fm.rrd:Ecool:AVERAGE \
+DEF:Out_Max=/home/pi/furnace/outsideTemp.rrd:Tout:MAX \
+DEF:Out_Min=/home/pi/furnace/outsideTemp.rrd:Tout:MIN \
+DEF:MFilter=/home/pi/furnace/filterLife.rrd:filter:MIN \
+DEF:MxFilter=/home/pi/furnace/filterLife.rrd:filter:MAX \
+DEF:Watts=/home/pi/furnace/powerUsage.rrd:watts:AVERAGE \
+DEF:Wh=/home/pi/furnace/kWh.rrd:kWh:AVERAGE \
+\
+CDEF:New_Avg_Tin=LAVG_Tup,LAVG_Tdown,+,2,/,0.25,*,10,+ \
+CDEF:Avg_Tout=LMax_Tout,LMin_Tout,+,2,/,0.25,*,10,+ \
+CDEF:Avg_Tin=LMax_Tup,LMax_Tdown,+,LMin_Tup,+,LMin_Tdown,+,4,/,0.25,*,10,+ \
+CDEF:Avg_OutsideProbe=Out_Max,Out_Min,+,2,/,0.25,*,10,+ \
+CDEF:S_Max_LTout=LMax_Tout,0.25,*,10,+ \
+CDEF:S_Max_LTup=LMax_Tup,0.25,*,10,+ \
+CDEF:S_Max_LTdown=LMax_Tdown,0.25,*,10,+ \
+CDEF:S_Min_LTout=LMin_Tout,0.25,*,10,+ \
+CDEF:S_Min_LTup=LMin_Tup,0.25,*,10,+ \
+CDEF:S_Min_LTdown=LMin_Tdown,0.25,*,10,+ \
+CDEF:L_Filter=MFilter,MxFilter,+,2,/,105,130,LIMIT,105,- \
+CDEF:kW=Watts,1000,/ \
+CDEF:kWh=Wh,1000,/ \
+\
+AREA:kWh#AAAAAA:"kWh Total" \
+AREA:LEheat#FF0000:"kWh heating" \
+AREA:LEcool#0000FF:"kWh cooling" \
+\
+LINE1:Avg_OutsideProbe#4D0000:"Outside Probe" \
+LINE1:New_Avg_Tin#090099 \
+LINE1:Avg_Tin#090099:"Inside Temp" \
+LINE1:L_Filter#FFFFFF:"Filter" \
+-t"2020 year"
+
+

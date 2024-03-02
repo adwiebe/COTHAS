@@ -1,0 +1,41 @@
+echo Generating Garage Temperature Graphs
+echo `uptime`
+
+rrdtool graph /home/pi/furnace/garage_day.png -a PNG --width 897 --height 504 \
+--end now --start end-36h \
+-u 40 -l -40 -r \
+--vertical-label 'C' \
+--units-exponent 0 \
+DEF:d_t_ecc=/home/pi/furnace/fm.rrd:Tout:AVERAGE \
+DEF:d_t_out=/home/pi/furnace/outsideTemp.rrd:Tout:AVERAGE \
+DEF:d_t_cave=/home/pi/furnace/garage.rrd:Ta:AVERAGE \
+DEF:d_t_pi=/home/pi/furnace/garage.rrd:Tb:AVERAGE \
+DEF:d_t_n_peak=/home/pi/furnace/garage.rrd:Tc:AVERAGE \
+DEF:d_t_cave_low=/home/pi/furnace/garage.rrd:Td:AVERAGE \
+LINE1:d_t_out#612c21:"Outside (house)" \
+LINE1:d_t_ecc#914d3f:"Outside (ECC-YWG)" \
+LINE1:d_t_cave#53358f:"Cave" \
+LINE1:d_t_cave_low#353b8f:"Cave Low" \
+LINE1:d_t_pi#8f6735:"Pi" \
+LINE1:d_t_n_peak#8f7d35:"North Peak" \
+-t"Garage - 36 hours"
+
+rrdtool graph /home/pi/furnace/garage_week.png -a PNG --width 897 --height 504 \
+--end now --start end-8d \
+-u 40 -l -40 -r \
+--vertical-label 'C' \
+--units-exponent 0 \
+DEF:d_t_ecc=/home/pi/furnace/fm.rrd:Tout:AVERAGE \
+DEF:d_t_out=/home/pi/furnace/outsideTemp.rrd:Tout:AVERAGE \
+DEF:d_t_cave=/home/pi/furnace/garage.rrd:Ta:AVERAGE \
+DEF:d_t_pi=/home/pi/furnace/garage.rrd:Tb:AVERAGE \
+DEF:d_t_n_peak=/home/pi/furnace/garage.rrd:Tc:AVERAGE \
+DEF:d_t_cave_low=/home/pi/furnace/garage.rrd:Td:AVERAGE \
+LINE1:d_t_out#612c21:"Outside (house)" \
+LINE1:d_t_ecc#914d3f:"Outside (ECC-YWG)" \
+LINE1:d_t_cave#53358f:"Cave" \
+LINE1:d_t_cave_low#353b8f:"Cave Low" \
+LINE1:d_t_pi#8f6735:"Pi" \
+LINE1:d_t_n_peak#8f7d35:"North Peak" \
+-t"Garage - 8 days"
+

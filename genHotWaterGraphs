@@ -1,0 +1,30 @@
+rrdtool graph /home/pi/furnace/hotwater1d.png -a PNG --end now --start end-24h \
+--width 897 --height 504 \
+DEF:top=/home/pi/furnace/hotWater.rrd:Ttop:AVERAGE \
+DEF:bot=/home/pi/furnace/hotWater.rrd:Tbottom:AVERAGE \
+LINE1:top#808000:"Top" \
+LINE1:bot#008080:"Bottom"
+
+rrdtool graph /home/pi/furnace/hotwater7d.png -a PNG --end now --start end-7d \
+--width 897 --height 504 \
+DEF:top=/home/pi/furnace/hotWater.rrd:Ttop:AVERAGE \
+DEF:bot=/home/pi/furnace/hotWater.rrd:Tbottom:AVERAGE \
+LINE1:top#808000:"Top" \
+LINE1:bot#008080:"Bottom"
+
+rrdtool graph /home/pi/furnace/hotwater12m.png -a PNG --end now --start end-78w \
+--width 897 --height 504 \
+DEF:top=/home/pi/furnace/hotWater.rrd:Ttop:AVERAGE \
+DEF:bot=/home/pi/furnace/hotWater.rrd:Tbottom:AVERAGE \
+DEF:tmax=/home/pi/furnace/hotWater.rrd:Ttop:MAX \
+DEF:bmin=/home/pi/furnace/hotWater.rrd:Tbottom:MIN \
+LINE1:top#808000:"Top" \
+LINE1:bot#008080:"Bottom" \
+LINE1:tmax#888000:"Top - max" \
+LINE1:bmin#008880:"Bottom -min"
+
+rrdtool graph /home/pi/furnace/hotwater-bottom.png -a PNG --end now-24w --start end-78w \
+--width 897 --height 504 \
+DEF:bmin=/home/pi/furnace/hotWater.rrd:Tbottom:MIN \
+LINE1:bmin#008880:"Bottom -min"
+

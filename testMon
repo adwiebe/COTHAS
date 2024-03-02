@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+#
+
+# loop forever
+
+if (`ps -e | grep furnaceMonitor`) 
+{
+	print "\nRUNNING\n";
+} else {
+
+	# restart process
+
+	print "\nSTARTING\n";
+	
+	system("/home/alex/furnace/furnaceMonitor > /home/alex/furnace/logs/fm.log 2>&1 &") ;
+}

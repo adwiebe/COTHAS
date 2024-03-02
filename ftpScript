@@ -1,0 +1,11 @@
+open flyinglow.ca
+user furnace 6MO1pzXZTx8BcRPt
+binary
+lcd /home/pi/furnace
+mput *.png
+lcd /home/pi/furnace/webPages/backups
+mget *.htm
+lcd /home/pi/furnace/webPages
+mput *.htm
+disconnect
+quit

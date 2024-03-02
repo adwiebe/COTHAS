@@ -1,0 +1,171 @@
+#!/usr/bin/perl
+#
+use Device::SerialPort 0.12;
+use Switch;
+
+$LOGDIR    = "/home/alex/furnace";         # path to data file
+$LOGFILE   = "arduino.log";             # file name to output to
+#$PORT      = "/dev/ttyACM0";          # port to watch
+#$PORT      = "/dev/ttyUSB0";          # port to watch
+$PORT      = "/dev/tmpArduino";          # port to watch
+
+# Serial Settings
+#print "Opening COM port...\n";
+
+my $ob = Device::SerialPort->new ($PORT) || die "Can't Open $PORT: $!";
+$ob->baudrate(9600)   || die "failed setting baudrate";
+$ob->parity("none")    || die "failed setting parity";
+$ob->databits(8)       || die "failed setting databits";
+$ob->handshake("none") || die "failed setting handshake";
+$ob->write_settings    || die "no settings";
+
+print "port open\n";
+
+# Hash for storing data until all collected 
+
+%data = ("P", 500); # seed with unrealistic filter pressure value
+
+$top = "2848A5E4400F2";
+$bottom = "289558E440036";
+
+$outside = "289BF4E3400B1";
+
+$hrv = "28CE50E4400DE"; # Fresh air out of HRV (going inside)
+$hrvFI = "2869EAE4400F5"; # Fresh air into HRV (coming in from outside)
+$hrvSO = "28633AE5400EB"; # Stale air out of HRV (going outside)
+$hrvSI = "28B8FE540081"; # Stale air into HRV (coming from shower)
+
+while(1) {
+
+	$Tt = 1000;
+	$Tb = 1000;
+	$To = 1000;
+	$Thrv = 1000;
+	$TFI = 1000;
+	$TSO = 1000;
+	$TSI = 1000;
+
+	print "<- ";
+	# poke the Arduino
+	$ob->write("1");
+
+	# wait for Arduino to start processing
+
+	sleep(20);
+	$rawData = $ob->input;
+	print $rawData." ->\n";
+
+	@lines = split(' ', $rawData);
+
+	foreach (@lines) {
+		@data_pair = split("=", $_);
+		$data{$data_pair[0]} = $data_pair[1];
+		print "data is:";
+		print $data_pair[1];
+		print " key is ";
+		print $data_pair[0];
+		print "\n";
+	}
+
+
+	# if valid, copy, else set to 'U'
+	if (index($data{$top}, '.') != -1 ) {
+		$Tt = $data{$top};
+	}
+
+	if (index($data{$bottom}, '.') != -1 ) {
+		$Tb = $data{$bottom};
+	}
+
+	if (index($data{$outside}, '.') != -1 ) {
+		$To = $data{$outside};
+	}
+
+	if (index($data{$hrv}, '.') != -1 ) {
+		$Thrv = $data{$hrv};
+	}
+
+	if (index($data{$hrvFI}, '.') != -1 ) {
+		$TFI = $data{$hrvFI};
+	}
+
+	if (index($data{$hrvSO}, '.') != -1 ) {
+		$TSO = $data{$hrvSO};
+	}
+
+	if (index($data{$hrvSI}, '.') != -1 ) {
+		$TSI = $data{$hrvSI};
+	}
+
+	print "Top of tank is: $Tt\n";
+	print "Bottom of tank is: $Tb\n";
+	print "Filter pressure is: $data{\"P\"}\n";
+	print "Outsite temperature is: $To\n";
+	print "HRV temps are: $TFI,$Thrv,$TSI,$TSO\n";
+
+	print "Logging\n";
+	my $dt = time;
+
+	if ($data{"P"} < 200) {
+		print "Valid P\n";
+		system("rrdtool update /home/alex/furnace/filterLife.rrd $dt:$data{\"P\"}");
+		system("/home/alex/furnace/manageFilter $data{\"P\"}");
+	}
+
+	if ( $To > -50 && $To < 50 && index($To, '.') != -1 && ($To - int($To)) != 0) {
+		print "Valid outside temp\n";
+		system("rrdtool update /home/alex/furnace/outsideTemp.rrd $dt:$To");
+	}
+
+	if ( ($Tt > 1 && $Tt < 100) && ($Tt - int($Tt)) != 0) {
+		print "Valid top hot water tank\n";
+
+	} else {
+		$Tt = "U";
+	}
+
+	if ( ($Tb > 1 && $Tb < 100) && ($Tb - int($Tb)) != 0) {
+		print "Valid bottom hot water tank\n";
+	} else {
+		$Tb = "U";
+	}
+
+	system("rrdtool update /home/alex/furnace/hotWater.rrd $dt:$Tt:$Tb");
+	
+	print "logging HRV data\n";
+
+        if ( ($Thrv > -20 && $Thrv < 40) && ($Thrv - int($Thrv)) != 0) {
+		print "Valid hrv \n";
+	} else {
+		$Thrv = "U";
+		print "Thrv invalid\n";
+	}
+
+        if ( ($TFI > -20 && $TFI < 40) && ($TFI - int($TFI)) != 0) {
+		print "Valid TFI \n";
+	} else {
+		$TFI = "U";
+		print "TFI invalid\n";
+	}
+
+        if ( ($TSO > -20 && $TSO < 40) && ($TSO - int($TSO)) != 0) {
+		print "Valid TSO \n";
+	} else {
+		$TSO = "U";
+		print "TSO invalid\n";
+	}
+
+        if ( ($TSI > -20 && $TSI < 40) && ($TSI - int($TSI)) != 0) {
+		print "Valid TSI \n";
+	} else {
+		$TSI = "U";
+		print "TSI invalid\n";
+	}
+
+	system("rrdtool update /home/alex/furnace/hrvTemp.rrd $dt:$TFI:$Thrv:$TSI:$TSO");
+
+	print "=======================\n";
+
+	# sleep until next minute
+	sleep 60 - (time % 60);
+}

@@ -1,0 +1,60 @@
+#!/usr/bin/perl
+#
+# furnaceMonitor
+#
+# combined master script that monitors furnace, env canada and temperature of house
+#
+
+use POSIX;
+use File::stat;
+use LWP::Simple;
+use Time::Local;
+use Switch;
+use DBI;
+
+#declare dbUpdate function
+sub dbUpdate;
+
+#declare trim function
+sub trim($);
+
+# globals for up & downstairs temperatures - setting to 0 to prevent uninitialized variable weirdness
+$Tup = 0;
+$Tdown = 0;
+$YwgTemp = 0;
+
+$LOGDIR    = "/home/alex/furnace";  # path to data file
+$PGM_NAME  = "dbLogStuff";      # name of this script
+$LOGFILE   = "furnace";             # file name to output to
+$RRDFILE   = "unknown.rrd";              # rrd database
+
+&dbUpdate;
+
+sub dbUpdate
+{
+eval {
+        my $dbh = DBI->connect("DBI:mysql:database=flyinglow_furnace;host=mysql.s412.sureserver.com;port=3306","wsfurnace","laiwong88");
+
+        my $update_time = time;
+
+        my $update_state = "O";
+
+        my $ttl_kWh = $Wh + $Wc;
+
+        my $filterLife = 0;
+
+        # insert:
+        #       currentTime     $update_time
+        #       state (H/C/O)   $update_state
+        #       sum(Wh + Wc)    $ttl_kWh
+        #       Tout            $YwgTemp
+        #       Tup             $Tup
+        #       Tdown           $Tdown
+        #       filterLife      $filterLife
+
+        $dbh->do("INSERT currentState SET state=\"$update_state\", kWh=2, Tout=0, Tup=0, Tdown=0, filterLife=$filterLife");
+
+        $dbh->disconnect();
+    }; warn $@ if $@;
+
+}

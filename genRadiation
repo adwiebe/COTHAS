@@ -1,0 +1,80 @@
+echo Generating Radiation Graphs
+echo `uptime`
+
+rrdtool graph /home/pi/furnace/radiation-year.png -a PNG \
+--end now --start end-16months \
+--width 1024 --height 600 \
+-r -u 50 -l 0 \
+-t"Radiation detected over past 16 months" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,100000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" 
+
+rrdtool graph /home/pi/furnace/radiation-month.png -a PNG \
+--end now --start end-6weeks \
+--width 1024 --height 600 \
+-r -u 50 -l 0 \
+-t"Radiation detected over past 6 weeks" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,50000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend"
+
+rrdtool graph /home/pi/furnace/radiation-2week.png -a PNG \
+--end now --start end-16days \
+--width 1024 --height 600 \
+-r -u 50 -l 0 \
+-t"Radiation detected over past 16 days" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,10000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" 
+
+rrdtool graph /home/pi/furnace/radiation-week.png -a PNG \
+--end now --start end-8days \
+--width 1024 --height 600 \
+-r -u 50 -l 0 \
+-t"Radiation detected over past 8 days" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,10000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" 
+
+rrdtool graph /home/pi/furnace/hrv-radiation.png -a PNG \
+--end now --start end-8days \
+--width 1024 --height 600 \
+-r -u 30 -l 10 \
+-t"HRV vs Radiation levels" \
+DEF:Tfin=/home/pi/furnace/hrvTemp.rrd:Tfin:AVERAGE \
+DEF:Tfout=/home/pi/furnace/hrvTemp.rrd:Tfout:AVERAGE \
+DEF:Tsin=/home/pi/furnace/hrvTemp.rrd:Tsin:AVERAGE \
+DEF:Tsout=/home/pi/furnace/hrvTemp.rrd:Tsout:AVERAGE \
+CDEF:F_delta=Tfout,Tfin,- \
+CDEF:S_delta=Tsout,Tsin,- \
+CDEF:netDelta=S_delta,F_delta,+ \
+AREA:F_delta#bce8bd:"Fresh air delta" \
+LINE1:Tfout#571814:"Fresh air out" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,10000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" \
+HRULE:0#000000
+
+rrdtool graph /home/pi/furnace/kwh-radiation.png -a PNG \
+--end now --start end-8days \
+--width 1024 --height 600 \
+-r -u 30 -l 10 \
+-t"kWh vs Radiation levels" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,10000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" \
+DEF:watts=/home/pi/furnace/powerUsage.rrd:watts:AVERAGE \
+CDEF:kW=watts,1000,/,10,+ \
+LINE1:kW#967800:"kW"
+
+rrdtool graph /home/pi/furnace/radiation-oct.png -a PNG \
+--end 20201031 --start 20201001 \
+--width 1024 --height 600 \
+-r -u 50 -l 0 \
+-t"Radiation detected in Oct 2020" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,5000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" 
+
+

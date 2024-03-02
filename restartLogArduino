@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+#
+
+# loop forever
+
+if (`ps -e | grep logArduino`) 
+{
+;
+} else {
+
+	# restart process
+
+	my $st = time;
+	print "STARTING: $st\n";
+
+	system("mv /home/alex/furnace/logs/arduino.log /home/alex/furnace/logs/arduino_$st.log");	
+	system("/home/alex/furnace/logArduino >> /home/alex/furnace/logs/arduino.log 2>&1 &") ;
+}

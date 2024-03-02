@@ -1,0 +1,90 @@
+#!/usr/bin/perl
+#
+# Track power usage against recorded records.
+# If new record (low or high) set, "celebrate" with a tweet
+#
+# Read from config file:
+#  <low-kw> <low-date> <high-kw> <high-date> <low-kwh> <low-kwh-date> <high-kwh> <high-kwh-date>
+
+use Time::Local;
+
+my $msg = join(" ", @ARGV);
+
+$filename = "/home/alex/furnace/powerUseRecords.txt";
+
+$dt = time;
+
+  $kwLo = 99991;
+  $kwLoDt = $dt;
+  $kwHi = 3;
+  $kwHiDt = $dt;
+  $kwhLo = 99995;
+  $kwhLoDt = $dt;
+  $kwhHi = 7;
+  $kwhHiDt = $dt;
+
+sub loadRecords() {
+  #open data file and read into dataline array
+  
+  open my $fh, '<', $filename or die "Cannot open cfg/data file: $!";
+  @dataline = <$fh>;
+  close $fh;
+  
+  #drop newlines
+  chomp(@dataline);
+  
+  #extract configuration values
+  $kwLo = shift(@dataline);
+  $kwLoDt = shift(@dataline);
+  $kwHi = shift(@dataline);
+  $kwHiDt = shift(@dataline);
+  $kwhLo = shift(@dataline);
+  $kwhLoDt = shift(@dataline);
+  $kwhHi = shift(@dataline);
+  $kwhHiDt = shift(@dataline);
+}
+
+sub saveRecords() {
+  #restore (put on front) conf values and save
+  unshift(@dataline,$kwhHiDt);
+  unshift(@dataline,$kwhHi);
+  unshift(@dataline,$kwhLoDt);
+  unshift(@dataline,$kwhLo);
+  unshift(@dataline,$kwHiDt);
+  unshift(@dataline,$kwHi);
+  unshift(@dataline,$kwLoDt);
+  unshift(@dataline,$kwLo);
+
+
+  open $fh, '>',  $filename or die "Cannot open cfg for writing: $!";
+  
+  foreach (@dataline) {
+	  print $fh "$_\n";
+  }
+  
+  close $fh;
+}
+
+sub dumpData() {
+  print ("kwLo: $kwLo\n");
+  print ("kwLoDt: $kwLoDt\n");
+  print ("kwHi: $kwHi\n");
+  print ("kwHiDt: $kwHiDt\n");
+  print ("kwhLo: $kwhLo\n");
+  print ("kwhLoDt: $kwhLoDt\n");
+  print ("kwhHi: $kwhHi\n");
+  print ("kwhHiDt: $kwhHiDt\n");
+}
+
+
+#MAIN ROUTINE
+
+loadRecords();
+dumpData();
+
+$kwhHiDt++;
+
+saveRecords();
+
+
+

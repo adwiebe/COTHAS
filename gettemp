@@ -1,0 +1,46 @@
+#!/usr/bin/perl
+#
+# runs every hour. fetches website from env canada that has
+# current winnipeg temperature.
+
+use LWP::Simple;
+use Time::Local;
+
+#declare trim function
+sub trim($);
+
+$datestamp = time;
+
+$url = sprintf "http://weather.gc.ca/rss/city/mb-38_e.xml";
+$content = get($url);
+
+$pattern = "\&deg;C";
+
+$t_found= 0;
+foreach $line (split /\n/ , $content) {
+if ($line =~ m/$pattern/ && $line =~ m/Temperature/) {
+ $line = trim($line);
+ $line = substr ($line, index($line, "Temperature")+17);
+print "[".$line."]\n";
+ $line = substr ($line, 0, index($line, $pattern));
+ $temp = trim($line);
+ print "$datestamp:$temp:U\n";
+# system("rrdtool update /home/alex/furnace/climate.rrd $datestamp:$temp:U");
+}
+
+#if ($line =~ m/Temperature/) {
+ #$t_found = 1;
+#} else {
+ #$t_found = 0;
+#}
+
+}
+
+
+#trim subroutine
+sub trim($) {
+ my $str = shift;
+ $str =~ s/^\s+//;
+ $str =~ s/\s+$//;
+ return $str
+}

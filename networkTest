@@ -1,0 +1,66 @@
+#!/usr/bin/perl
+#
+
+use strict;
+use warnings;
+
+use Time::Local;
+use Device::ParallelPort;
+
+my $testSite = "208.67.220.220";
+my $testSite2 = "208.67.222.222";
+
+my $sec=0;
+my $min=0;
+my $hour=0;
+my $mday=0;
+my $mon=0;
+my $year=0;
+my $wday=0;
+my $yday=0;
+my $isdst=0;
+
+my $l_time = time;
+
+($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime($l_time);
+
+if (`ping -c 1 $testSite | grep "1 received"`)
+{
+#	print "\nALIVE\n";
+} else {
+	print "On $mon $mday, $year at $hour:$min I think we might be dead?\n";
+	sleep(10);
+
+	if (`ping -c 1 $testSite2 | grep "1 received"`)
+	{
+		print "I'm not dead yet!\n";
+	} else {
+		# restart process
+
+		print "Yup, we're DEAD!\n";
+
+		my $port = Device::ParallelPort->new();
+
+		# toggle bit 0 ON
+		$port->set_bit(0,1);
+		print "Bit 0 ON\n";
+
+		# wait 30 seconds
+		sleep(30);
+
+		# toggle bit 0 OFF
+		$port->set_bit(0,0);
+		print "Bit 0 OFF\n";
+
+		sleep(120);
+		print "Retest\n";
+		if (`ping -c 1 $testSite | grep "1 received"`)
+		{
+			print "Success!\n";
+			my $t_commTime = time;
+			system("/home/alex/furnace/tweet d ehud42 Communication restared at $hour:$min ie:time stamp: $t_commTime");
+		} else {
+			print "Left for dead\n";
+		}
+	}
+}

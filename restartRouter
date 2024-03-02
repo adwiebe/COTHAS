@@ -1,0 +1,25 @@
+#!/usr/bin/perl
+#
+
+use strict;
+use warnings;
+
+use Time::Local;
+use Device::ParallelPort;
+
+my $testSite = "208.67.220.220";
+my $testSite2 = "208.67.222.222";
+
+		my $port = Device::ParallelPort->new();
+
+		# toggle bit 0 ON
+		$port->set_bit(0,1);
+		print "Bit 0 ON\n";
+
+		# wait 30 seconds
+		sleep(10);
+
+		# toggle bit 0 OFF
+		$port->set_bit(0,0);
+		print "Bit 0 OFF\n";
+

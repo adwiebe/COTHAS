@@ -1,0 +1,99 @@
+#!/usr/bin/perl
+#
+use Device::SerialPort 0.12;
+use Switch;
+
+$LOGDIR    = "/home/alex/furnace";         # path to data file
+$LOGFILE   = "localtemperatures";             # file name to output to
+$PORT      = "/dev/ttyS1";          # port to watch
+
+# Serial Settings
+#print "Opening COM port...\n";
+
+my $ob = Device::SerialPort->new ($PORT) || die "Can't Open $PORT: $!";
+$ob->baudrate(9600)   || die "failed setting baudrate";
+$ob->parity("none")    || die "failed setting parity";
+$ob->databits(8)       || die "failed setting databits";
+$ob->handshake("none") || die "failed setting handshake";
+$ob->write_settings    || die "no settings";
+
+#prime line
+
+#print "Priming...\n";
+
+	$ob->write("P0W0ccS044");
+	$ob->write_drain;
+	sleep(2);
+	$ob->write("P0W0ccW0be");
+	$ob->write_drain;
+	sleep(1);
+	$ob->write("R0");
+	$ob->write_drain;
+	$ob->write("R0");
+	sleep(3);
+
+#read temp from probe '0'
+#print "Reading port 0...\n";
+
+	$ob->write("P0W0ccS044");
+	$ob->write_drain;
+	sleep(2);
+	$ob->write("P0W0ccW0be");
+	$ob->write_drain;
+	sleep(1);
+	$ob->write("R0");
+	$ob->write_drain;
+	
+	# print "Wait for character\n";
+	my $lowbyte = $ob->input;
+	$lowbyte =~ s/\r|\n//g;
+
+	sleep(1);
+	$ob->write("R0");
+	$ob->write_drain;
+	my $highbyte = $ob->input;
+	$highbyte =~ s/\r|\n//g;
+
+	#for temperatures above 0 (which it should always be inside)
+	#one byte should be 0 and the other is Tc * 2.
+	#so to display temp, just take $highbyte/2.
+
+	$tc1 = $highbyte / 2;
+
+#wait for bus to clear
+#print "Sleeping....\n";
+sleep(3);
+
+#read temp from probe '1'
+#print "Reading port 1...\n";
+
+	$ob->write("P1W1ccS144");
+	$ob->write_drain;
+	sleep(2);
+	$ob->write("P1W1ccW1be");
+	$ob->write_drain;
+	sleep(1);
+	$ob->write("R1");
+	$ob->write_drain;
+	
+	# print "Wait for character\n";
+	my $upstairs_lowbyte = $ob->input;
+	$upstairs_lowbyte =~ s/\r|\n//g;
+
+	sleep(1);
+	$ob->write("R1");
+	$ob->write_drain;
+	my $upstairs_highbyte = $ob->input;
+	$upstairs_highbyte =~ s/\r|\n//g;
+
+	#for temperatures above 0 (which it should always be inside)
+	#one byte should be 0 and the other is Tc * 2.
+	#so to display temp, just take $highbyte/2.
+
+	$tc2 = $upstairs_highbyte / 2;
+
+	$datetime = time;
+
+print "$datetime:$tc2:$tc1\n";
+
+	system("rrdtool update /home/alex/furnace/fm.rrd $datetime:U:$tc2:$tc2:U:U");

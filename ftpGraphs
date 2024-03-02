@@ -1,0 +1,3 @@
+ftp -p -inv < /home/pi/furnace/ftpScript
+
+

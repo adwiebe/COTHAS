@@ -1,0 +1,17 @@
+echo Generating Graphs - Master Program
+echo `uptime`
+
+/home/pi/furnace/genLegacyGraphs
+/home/pi/furnace/gen2023
+/home/pi/furnace/gen2yrs
+/home/pi/furnace/genRiverGraphs
+/home/pi/furnace/genHRVGraphs
+/home/pi/furnace/genkWh
+/home/pi/furnace/genPower
+/home/pi/furnace/genHotWaterGraphs
+/home/pi/furnace/genRadiation
+/home/pi/furnace/genCO2
+/home/pi/furnace/genGarage
+/home/pi/furnace/genBedZone
+nohup /home/pi/furnace/ftpGraphs &
+

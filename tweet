@@ -1,0 +1,80 @@
+#!/usr/bin/perl
+#
+
+# can I tweet?
+
+# use Net::Twitter;
+use Twitter::API;
+use JSON qw ( decode_json );
+
+$ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
+
+$obj_tweet = Twitter::API->new_with_traits(
+   traits                    => [qw/Migration ApiMethods/],
+   ssl                       => 1,
+   consumer_key              => "A4X3cgQBB3UWLGgXFdUJag",
+   consumer_secret           => "ui8vrbfAnVjCmfIFeZce5T7bjjgCZUCcHU8Es8V44c",
+   access_token              => "101596598-afomOD4MYVuORUopTpXsFXQSCgGiHCPHpdG04iqG",
+   access_token_secret       => "4d7lLkvg4W6oYc23cmCjUjOnulXB5SFGBWbRHzhGus",
+);
+
+sub direct_tweet;
+sub tweet;
+
+my $msg = join(" ", @ARGV);
+
+if (@ARGV[0] eq "d") {
+  &direct_tweet($msg);
+} else {
+  &tweet($msg);
+}
+
+#===========================
+#SUB TO SEND DIRECT MESSSAGE
+#Late 2018 Twitter depecrated the new_direct_message api
+#Am to use new_direct_message_event
+#===========================
+sub direct_tweet {
+
+ ( $cmd, $userid, $msg ) = split ( /\s/, $_[0], 3);
+
+# Feb 2019 - need to convert screen_id to recipient_id
+
+ my $result="";
+ eval { ( $result, $user_obj ) = $obj_tweet->show_user( $userid ); } ;
+ if ($@ ) {
+   warn "Twtitter show failed because: $@\n";
+ } else {
+#   print "Show done: [".$result."]\n";
+#   print "User_obj: [".$user_obj."]\n";
+#   my $recip_id = $user_obj->id_str;
+   my $resp_json = $user_obj->http_response->decoded_content;
+   my $resp_decoded = decode_json( $resp_json );
+   $recip_id = $resp_decoded->{'id'};
+#   print "Recip ID: [".$recip_id."]\n";
+
+  eval { $result = $obj_tweet->new_direct_messages_event( $msg, $recip_id ); } ;
+
+  if ($@ ) {
+    warn "Twitter direct message failed because: $@\n";
+  } else {
+    print "Done: [".$result."]\n";
+  }
+ }
+
+}
+
+#======================
+#SUB TO POST UPDATE
+#======================
+sub tweet {
+
+ my $result="";
+ eval { $result = $obj_tweet->update($_[0]); } ;
+ if ($@ ) {
+   warn "Twitter udpate failed because: $@\n";
+ } else {
+   print "Done: [".$result."]\n";
+ }
+}
+

@@ -1,0 +1,106 @@
+echo Generating new power / kWh Graphs
+echo `uptime`
+
+rrdtool graph /home/pi/furnace/power-hour.png -a PNG --width 897 --height 504 \
+--end now --start end-1h \
+--width 1024 --height 600 \
+-l 0 \
+-t"Power usage last hour" \
+DEF:v2=/home/pi/furnace/current_monitor.rrd:v2:AVERAGE \
+DEF:v3=/home/pi/furnace/current_monitor.rrd:v3:AVERAGE \
+CDEF:a2=v2,5000,/,150,* \
+CDEF:a3=v3,5000,/,150,* \
+LINE1:a2#FF0000:"A2" \
+LINE1:a3#0000FF:"A3"
+
+rrdtool graph /home/pi/furnace/power-hour-low.png -a PNG --width 897 --height 504 \
+--end now --start end-1h \
+--width 1024 --height 600 \
+-l 0 -u 20 -r \
+-t"20A Power usage last hour" \
+DEF:v2=/home/pi/furnace/current_monitor.rrd:v2:AVERAGE \
+DEF:v3=/home/pi/furnace/current_monitor.rrd:v3:AVERAGE \
+CDEF:a2=v2,5000,/,150,* \
+CDEF:a3=v3,5000,/,150,* \
+LINE1:a2#FF0000:"A2" \
+LINE1:a3#0000FF:"A3"
+
+rrdtool graph /home/pi/furnace/power-24hour.png -a PNG --width 897 --height 504 \
+--end now --start end-24h \
+--width 25000 --height 600 \
+-l 0 \
+-t"Power usage last 24 hours" \
+DEF:v2=/home/pi/furnace/current_monitor.rrd:v2:AVERAGE \
+DEF:v3=/home/pi/furnace/current_monitor.rrd:v3:AVERAGE \
+CDEF:a2=v2,5000,/,150,* \
+CDEF:a3=v3,5000,/,150,* \
+LINE1:a2#FF0000:"A2" \
+LINE1:a3#0000FF:"A3"
+
+rrdtool graph /home/pi/furnace/power-day.png -a PNG --width 897 --height 504 \
+--end now --start end-25h \
+--width 1024 --height 600 \
+-l 0 \
+-t"Power usage last day" \
+--slope-mode \
+DEF:v2=/home/pi/furnace/current_monitor.rrd:v2:AVERAGE:step=300 \
+DEF:v3=/home/pi/furnace/current_monitor.rrd:v3:AVERAGE:step=300 \
+DEF:v2_min=/home/pi/furnace/current_monitor.rrd:v2:MIN:step=900 \
+DEF:v3_min=/home/pi/furnace/current_monitor.rrd:v3:MIN:step=900 \
+DEF:v2_max=/home/pi/furnace/current_monitor.rrd:v2:MAX:step=900 \
+DEF:v3_max=/home/pi/furnace/current_monitor.rrd:v3:MAX:step=900 \
+CDEF:a2=v2,5000,/,150,* \
+CDEF:a3=v3,5000,/,150,* \
+CDEF:a2_min=v2_min,5000,/,150,* \
+CDEF:a3_min=v3_min,5000,/,150,* \
+CDEF:a2_max=v2_max,5000,/,150,* \
+CDEF:a3_max=v3_max,5000,/,150,* \
+CDEF:a_min=a2_min,a3_min,+ \
+CDEF:a_max=a2_max,a3_max,+ \
+AREA:a2#05990080:"A2" \
+AREA:a3#11990080:"A3":STACK \
+LINE1:a_min#000000:"Min" \
+LINE1:a_max#000000:"Max"
+
+rrdtool graph /home/pi/furnace/power-month.png -a PNG --width 897 --height 504 \
+--end now --start end-35d \
+--width 1024 --height 600 \
+-l 0 \
+-t"Power usage last month" \
+DEF:v2=/home/pi/furnace/current_monitor.rrd:v2:AVERAGE \
+DEF:v3=/home/pi/furnace/current_monitor.rrd:v3:AVERAGE \
+DEF:v2_min=/home/pi/furnace/current_monitor.rrd:v2:MIN \
+DEF:v3_min=/home/pi/furnace/current_monitor.rrd:v3:MIN \
+DEF:v2_max=/home/pi/furnace/current_monitor.rrd:v2:MAX \
+DEF:v3_max=/home/pi/furnace/current_monitor.rrd:v3:MAX \
+CDEF:a2=v2,5000,/,150,* \
+CDEF:a3=v3,5000,/,150,* \
+CDEF:a2_min=v2_min,5000,/,150,* \
+CDEF:a3_min=v3_min,5000,/,150,* \
+CDEF:a2_max=v2_max,5000,/,150,* \
+CDEF:a3_max=v3_max,5000,/,150,* \
+CDEF:a_min=a2_min,a3_min,+ \
+CDEF:a_max=a2_max,a3_max,+ \
+AREA:a2#FF000080:"A2" \
+AREA:a3#0000FF80:"A3":STACK \
+LINE1:a_min#000000:"Min" \
+LINE1:a_max#000000:"Max"
+
+
+rrdtool graph /home/pi/furnace/ground-month.png -a PNG --width 897 --height 504 \
+--end now --start end-35d \
+--width 1024 --height 600 \
+-l 0 \
+-t"Phase imbalance - where does it go - last month" \
+DEF:v1=/home/pi/furnace/current_monitor.rrd:v1:AVERAGE:step=3600 \
+DEF:v2=/home/pi/furnace/current_monitor.rrd:v2:AVERAGE:step=3600 \
+DEF:v3=/home/pi/furnace/current_monitor.rrd:v3:AVERAGE:step=3600 \
+CDEF:a1=v1,1000,/,30,*,1.412,/ \
+CDEF:a2=v2,5000,/,150,* \
+CDEF:a3=v3,5000,/,150,* \
+CDEF:a_gnd=a2,a3,-,ABS,a1,- \
+LINE1:a1#990000:"To Utility" \
+LINE1:a_gnd#009900:"A3"
+echo Done new power / kWh graphs
+
+

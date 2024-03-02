@@ -1,0 +1,2 @@
+#!/bin/sh
+rrdtool update /home/pi/furnace/CO2.rrd $(date +%s):$(wget -O - 192.168.1.160 | tr ',' ':')

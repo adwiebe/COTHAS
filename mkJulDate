@@ -1,0 +1,14 @@
+#!/usr/bin/perl
+
+use POSIX;
+
+$l_time = time;
+($sec,$min,$curr_hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime($l_time);
+
+if ($mon < 6) {$year-=1;}
+
+#my $unixtime = mktime ($sec, $min, $hour, $day, $mon, $year, $wday, $yday);
+my $unixtime = mktime (0, 0, 0, 0, 6, $year, 0, 0);
+
+print $unixtime;
+

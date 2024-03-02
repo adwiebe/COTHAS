@@ -1,0 +1,172 @@
+echo Generating River Graphs
+echo `uptime`
+
+rrdtool graph /home/pi/furnace/submergedWalkway.png --end now --start end-30d \
+-t"Is the Forks River Walk under water?" \
+--width 1024 --height 400 \
+-u 600 -l 0 -r -Y \
+--vertical-label '221m + Y cm' \
+HRULE:380#000000:"Granite Club pathway" \
+HRULE:325#FF0000:"Forks River Walkway" \
+HRULE:77#00FF00:"James Ave (aka '0')" \
+DEF:ol=/home/pi/furnace/riverLevels.rrd:osborne:AVERAGE \
+CDEF:olcm=ol,100,*,22100,- \
+AREA:olcm#00FFFF80:"River Level at Osborne Bridge"
+
+
+rrdtool graph /home/pi/furnace/river.png --end now --start end-36h \
+--width 600 --height 250 \
+-u 300 -r -Y \
+--vertical-label '230m + Y cm' \
+DEF:lvl=/home/pi/furnace/riverLevels.rrd:west:AVERAGE \
+CDEF:lvlcm=lvl,100,*,23000,- \
+LINE1:lvlcm#000000:"Avg"
+
+rrdtool graph /home/pi/furnace/river-month.png --end now --start end-30d \
+--width 600 --height 250 \
+-u 1100 -l 0 -r -Y \
+--units-exponent 0 \
+--left-axis-format %4.0lf \
+--vertical-label '221m + Y cm' \
+DEF:pl=/home/pi/furnace/riverLevels.rrd:west:AVERAGE \
+DEF:cl=/home/pi/furnace/riverLevels.rrd:charleswood:AVERAGE \
+DEF:sl=/home/pi/furnace/riverLevels.rrd:stjames:AVERAGE \
+DEF:ml=/home/pi/furnace/riverLevels.rrd:maryland:AVERAGE \
+DEF:ol=/home/pi/furnace/riverLevels.rrd:osborne:AVERAGE \
+CDEF:plcm=pl,100,*,22100,- \
+CDEF:clcm=cl,100,*,22100,- \
+CDEF:slcm=sl,100,*,22100,- \
+CDEF:mlcm=ml,100,*,22100,- \
+CDEF:olcm=ol,100,*,22100,- \
+LINE1:plcm#0000FF:"WP2" \
+LINE1:clcm#00FF00:"Chwd" \
+LINE1:slcm#FF0000:"StJ" \
+LINE1:mlcm#FF00FF:"Maryland" \
+LINE1:olcm#00FFFF:"Osborne"
+
+rrdtool graph /home/pi/furnace/river-year.png --end now --start end-16months \
+--width 600 --height 250 \
+-u 1100 -l 0 -r -Y \
+--units-exponent 0 \
+--left-axis-format %4.0lf \
+--vertical-label '221m + Y cm' \
+-x MONTH:1:MONTH:3:MONTH:3:0:'%b %G' \
+DEF:pl=/home/pi/furnace/riverLevels.rrd:west:AVERAGE \
+DEF:cl=/home/pi/furnace/riverLevels.rrd:charleswood:AVERAGE \
+DEF:sl=/home/pi/furnace/riverLevels.rrd:stjames:AVERAGE \
+DEF:ml=/home/pi/furnace/riverLevels.rrd:maryland:AVERAGE \
+DEF:ol=/home/pi/furnace/riverLevels.rrd:osborne:AVERAGE \
+CDEF:plcm=pl,100,*,22100,- \
+CDEF:clcm=cl,100,*,22100,- \
+CDEF:slcm=sl,100,*,22100,- \
+CDEF:mlcm=ml,100,*,22100,- \
+CDEF:olcm=ol,100,*,22100,- \
+HRULE:77#00FF00:"James Ave (aka '0')" \
+VRULE:`/home/pi/furnace/mkDateLastYear -1`#000000:"Last Year" \
+LINE1:plcm#0000FF:"WP" \
+LINE1:clcm#00FF00:"Chwd" \
+LINE1:slcm#FF0000:"StJ" \
+LINE1:mlcm#FF00FF:"Maryland" \
+LINE1:olcm#00FFFF:"Osborne"
+
+rrdtool graph /home/pi/furnace/river-day.png --end now --start end-36h \
+--width 600 --height 250 \
+-u 1100 -l 0 -r -Y \
+--units-exponent 0 \
+--left-axis-format %4.0lf \
+--vertical-label '221m + Y cm' \
+DEF:pl=/home/pi/furnace/riverLevels.rrd:west:AVERAGE \
+DEF:cl=/home/pi/furnace/riverLevels.rrd:charleswood:AVERAGE \
+DEF:sl=/home/pi/furnace/riverLevels.rrd:stjames:AVERAGE \
+DEF:ml=/home/pi/furnace/riverLevels.rrd:maryland:AVERAGE \
+DEF:ol=/home/pi/furnace/riverLevels.rrd:osborne:AVERAGE \
+CDEF:plcm=pl,100,*,22100,- \
+CDEF:clcm=cl,100,*,22100,- \
+CDEF:slcm=sl,100,*,22100,- \
+CDEF:mlcm=ml,100,*,22100,- \
+CDEF:olcm=ol,100,*,22100,- \
+LINE1:plcm#0000FF:"WP" \
+LINE1:clcm#00FF00:"Chwd" \
+LINE1:slcm#FF0000:"StJ" \
+LINE1:mlcm#FF00FF:"Maryland" \
+LINE1:olcm#00FFFF:"Osborne"
+
+rrdtool graph /home/pi/furnace/river-3year.png --end now --start end-36months \
+--width 600 --height 250 \
+-u 1100 -l 0 -r -Y \
+--units-exponent 0 \
+--left-axis-format %4.0lf \
+--vertical-label '221m + Y cm' \
+-x MONTH:1:MONTH:3:MONTH:3:0:'%b %G' \
+DEF:pl=/home/pi/furnace/riverLevels.rrd:west:AVERAGE \
+DEF:cl=/home/pi/furnace/riverLevels.rrd:charleswood:AVERAGE \
+DEF:sl=/home/pi/furnace/riverLevels.rrd:stjames:AVERAGE \
+DEF:ml=/home/pi/furnace/riverLevels.rrd:maryland:AVERAGE \
+DEF:ol=/home/pi/furnace/riverLevels.rrd:osborne:AVERAGE \
+CDEF:plcm=pl,100,*,22100,- \
+CDEF:clcm=cl,100,*,22100,- \
+CDEF:slcm=sl,100,*,22100,- \
+CDEF:mlcm=ml,100,*,22100,- \
+CDEF:olcm=ol,100,*,22100,- \
+HRULE:77#00FF00:"James Ave (aka '0')" \
+VRULE:`/home/pi/furnace/mkDateLastYear -1`#000000:"Last Year" \
+LINE1:plcm#0000FF:"WP" \
+LINE1:clcm#00FF00:"Chwd" \
+LINE1:slcm#FF0000:"StJ" \
+LINE1:mlcm#FF00FF:"Maryland" \
+LINE1:olcm#00FFFF:"Osborne"
+
+rrdtool graph /home/pi/furnace/river-4year.png --end now --start end-50months \
+--width 1000 --height 250 \
+-u 1100 -l 0 -r -Y \
+--units-exponent 0 \
+--left-axis-format %4.0lf \
+--vertical-label '221m + Y cm' \
+-x MONTH:1:MONTH:3:MONTH:3:0:'%b %G' \
+DEF:pl=/home/pi/furnace/riverLevels.rrd:west:AVERAGE \
+DEF:cl=/home/pi/furnace/riverLevels.rrd:charleswood:AVERAGE \
+DEF:sl=/home/pi/furnace/riverLevels.rrd:stjames:AVERAGE \
+DEF:ml=/home/pi/furnace/riverLevels.rrd:maryland:AVERAGE \
+DEF:ol=/home/pi/furnace/riverLevels.rrd:osborne:AVERAGE \
+CDEF:plcm=pl,100,*,22100,- \
+CDEF:clcm=cl,100,*,22100,- \
+CDEF:slcm=sl,100,*,22100,- \
+CDEF:mlcm=ml,100,*,22100,- \
+CDEF:olcm=ol,100,*,22100,- \
+HRULE:77#00FF00:"James Ave (aka '0')" \
+LINE1:plcm#0000FF:"WP" \
+LINE1:clcm#00FF00:"Chwd" \
+LINE1:slcm#FF0000:"StJ" \
+LINE1:mlcm#FF00FF:"Maryland" \
+LINE1:olcm#00FFFF:"Osborne"
+
+rrdtool graph /home/pi/furnace/river-4year-flood.png --end now --start end-50months \
+--width 1000 --height 250 \
+-u 1100 -l 0 -r -Y \
+--units-exponent 0 \
+--left-axis-format %4.0lf \
+--vertical-label '221m + Y cm' \
+-x MONTH:1:MONTH:3:MONTH:3:0:'%b %G' \
+DEF:pl=/home/pi/furnace/riverLevels.rrd:west:AVERAGE \
+DEF:cl=/home/pi/furnace/riverLevels.rrd:charleswood:AVERAGE \
+DEF:sl=/home/pi/furnace/riverLevels.rrd:stjames:AVERAGE \
+DEF:ml=/home/pi/furnace/riverLevels.rrd:maryland:AVERAGE \
+DEF:ol=/home/pi/furnace/riverLevels.rrd:osborne:AVERAGE \
+CDEF:plcm=pl,100,*,22100,- \
+CDEF:clcm=cl,100,*,22100,- \
+CDEF:slcm=sl,100,*,22100,- \
+CDEF:mlcm=ml,100,*,22100,- \
+CDEF:olcm=ol,100,*,22100,- \
+CDEF:c_ml_flood=mlcm,325,GT,1100,* \
+CDEF:c_ol_flood=olcm,325,GT,1100,* \
+AREA:c_ml_flood#6df3f788:"Flood" \
+AREA:c_ol_flood#6df3f788 \
+HRULE:77#00FF00:"James Ave (aka '0')" \
+LINE1:plcm#0000FF:"WP" \
+LINE1:clcm#00FF00:"Chwd" \
+LINE1:slcm#FF0000:"StJ" \
+LINE1:mlcm#FF00FF:"Maryland" \
+LINE1:olcm#00AAAA:"Osborne"
+
+
+echo Finished generating river graphs

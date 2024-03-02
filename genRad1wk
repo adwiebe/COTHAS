@@ -1,0 +1,114 @@
+echo Generating Radiation Graphs
+echo `uptime`
+
+rrdtool graph /home/pi/furnace/radiation-0830-0905.png -a PNG \
+--start 20200830 \
+--end 20200905 \
+--width 1024 --height 600 \
+-r -u 50 -l 0 \
+-t"Radiation week 1" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,5000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" 
+
+rrdtool graph /home/pi/furnace/radiation-0906-0912.png -a PNG \
+--start 20200906 \
+--end 20200912 \
+--width 1024 --height 600 \
+-r -u 50 -l 0 \
+-t"Radiation week 2" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,5000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" 
+
+rrdtool graph /home/pi/furnace/radiation-0913-0919.png -a PNG \
+--start 20200913 \
+--end 20200919 \
+--width 1024 --height 600 \
+-r -u 50 -l 0 \
+-t"Radiation week 3" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,5000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" 
+
+rrdtool graph /home/pi/furnace/radiation-0920-0926.png -a PNG \
+--start 20200920 \
+--end 20200926 \
+--width 1024 --height 600 \
+-r -u 50 -l 0 \
+-t"Radiation week 4" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,5000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" 
+
+rrdtool graph /home/pi/furnace/radiation-0927-1003.png -a PNG \
+--start 20200927 \
+--end 20201003 \
+--width 1024 --height 600 \
+-r -u 50 -l 0 \
+-t"Radiation week 5" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,5000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" 
+
+rrdtool graph /home/pi/furnace/radiation-1004-1010.png -a PNG \
+--start 20201004 \
+--end 20201010 \
+--width 1024 --height 600 \
+-r -u 50 -l 0 \
+-t"Radiation week 6" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,5000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" 
+
+rrdtool graph /home/pi/furnace/radiation-1011-1017.png -a PNG \
+--start 20201011 \
+--end 20201017 \
+--width 1024 --height 600 \
+-r -u 50 -l 0 \
+-t"Radiation week 7" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,5000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" 
+
+rrdtool graph /home/pi/furnace/radiation-1018-1024.png -a PNG \
+--start 20201018 \
+--end 20201024 \
+--width 1024 --height 600 \
+-r -u 50 -l 0 \
+-t"Radiation week 8" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,5000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" 
+
+rrdtool graph /home/pi/furnace/radiation-1025-1031.png -a PNG \
+--start 20201025 \
+--end 20201031 \
+--width 1024 --height 600 \
+-r -u 50 -l 0 \
+-t"Radiation week 9" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,5000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" 
+
+rrdtool graph /home/pi/furnace/radiation-1101-1107.png -a PNG \
+--start 20201101 \
+--end 20201107 \
+--width 1024 --height 600 \
+-r -u 50 -l 0 \
+-t"Radiation week 10" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,5000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" 
+
+rrdtool graph /home/pi/furnace/radiation-1108-1114.png -a PNG \
+--start 20201108 \
+--end 20201114 \
+--width 1024 --height 600 \
+-r -u 50 -l 0 \
+-t"Radiation week 11" \
+DEF:rad=/home/pi/furnace/radiation.rrd:rad:AVERAGE \
+CDEF:radTrend=rad,5000,TREND \
+LINE2:radTrend#c9002f:"Rad Trend" 
+
+

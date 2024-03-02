@@ -1,0 +1,10 @@
+echo Generating CO2 Graphs
+echo `uptime`
+
+rrdtool graph /home/pi/furnace/co2test_day.png -a PNG --width 897 --height 504 \
+--end now --start end-36h \
+DEF:d_hrv=/home/pi/furnace/CO2.rrd:HRV:AVERAGE \
+DEF:d_fan=/home/pi/furnace/CO2.rrd:FAN:AVERAGE \
+CDEF:c_fan=d_fan,900,* \
+AREA:c_fan#00FFFF:"Fan" \
+-t"CO2 - 36 hours"

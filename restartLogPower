@@ -1,0 +1,18 @@
+#!/usr/bin/perl
+#
+
+# loop forever
+
+if (`ps -e | grep logPower`) 
+{
+;
+} else {
+
+	# restart process
+
+	my $st = time;
+	print "STARTING: $st\n";
+
+	system("mv /home/pi/furnace/logs/power.log /home/pi/furnace/logs/power_$st.log");	
+	system("/home/pi/furnace/logPower >> /home/pi/furnace/logs/power.log 2>&1 &") ;
+}

@@ -1,0 +1,98 @@
+echo Generating Bedroom Zone Valve Graphs
+echo `uptime`
+
+rrdtool graph /home/pi/furnace/brz_day.png -a PNG --width 1300 --height 800 \
+--end now --start end-36h \
+-u 25 -l 15 -r \
+--vertical-label 'C' \
+--y-grid 0.1:10 \
+DEF:d_ts=/home/pi/furnace/br_zone.rrd:ts:AVERAGE \
+DEF:d_tr=/home/pi/furnace/br_zone.rrd:tr:AVERAGE \
+DEF:d_tp=/home/pi/furnace/br_zone.rrd:tp:AVERAGE \
+DEF:d_d_min=/home/pi/furnace/br_zone.rrd:d:MIN \
+DEF:d_d=/home/pi/furnace/br_zone.rrd:d:AVERAGE \
+CDEF:c_d_base=d_d_min,14,+ \
+CDEF:c_d_area=d_d,10,* \
+LINE1:c_d_base#00FF00 \
+AREA:c_d_area#00FF00:"Damper Open":STACK \
+LINE1:d_ts#000000:"TS" \
+LINE1:d_tr#0000FF:"TR" \
+LINE1:d_tp#FF0000:"TP" \
+-t"Bedroom Zone Valve - 36 hours"
+
+rrdtool graph /home/pi/furnace/brz_week.png -a PNG --width 1300 --height 800 \
+--end now --start end-8d \
+-u 25 -l 15 -r \
+--vertical-label 'C' \
+--y-grid 0.1:10 \
+DEF:d_ts=/home/pi/furnace/br_zone.rrd:ts:AVERAGE \
+DEF:d_tr=/home/pi/furnace/br_zone.rrd:tr:AVERAGE \
+DEF:d_tp=/home/pi/furnace/br_zone.rrd:tp:AVERAGE \
+DEF:d_d_min=/home/pi/furnace/br_zone.rrd:d:MIN \
+DEF:d_d=/home/pi/furnace/br_zone.rrd:d:AVERAGE \
+CDEF:c_d_base=d_d_min,14,+ \
+CDEF:c_d_area=d_d,10,* \
+LINE1:c_d_base#00FF00 \
+AREA:c_d_area#00FF00:"Damper Open":STACK \
+LINE1:d_ts#000000:"TS" \
+LINE1:d_tr#0000FF:"TR" \
+LINE1:d_tp#FF0000:"TP" \
+-t"Bedroom Zone Valve - 8 days"
+
+rrdtool graph /home/pi/furnace/brz_month.png -a PNG --width 1300 --height 800 \
+--end now --start end-36d \
+-u 25 -l 15 -r \
+--vertical-label 'C' \
+--y-grid 0.1:10 \
+DEF:d_ts=/home/pi/furnace/br_zone.rrd:ts:AVERAGE \
+DEF:d_tr=/home/pi/furnace/br_zone.rrd:tr:AVERAGE \
+DEF:d_tp=/home/pi/furnace/br_zone.rrd:tp:AVERAGE \
+DEF:d_d_min=/home/pi/furnace/br_zone.rrd:d:MIN \
+DEF:d_d=/home/pi/furnace/br_zone.rrd:d:AVERAGE \
+CDEF:c_d_base=d_d_min,14,+ \
+CDEF:c_d_area=d_d,10,* \
+LINE1:c_d_base#00FF00 \
+AREA:c_d_area#00FF00:"Damper Open":STACK \
+LINE1:d_ts#000000:"TS" \
+LINE1:d_tr#0000FF:"TR" \
+LINE1:d_tp#FF0000:"TP" \
+-t"Bedroom Zone Valve - 36 days"
+
+
+rrdtool graph /home/pi/furnace/plenum_range_month.png -a PNG --width 1300 --height 800 \
+--end now --start end-36d \
+--vertical-label 'C' \
+--y-grid 0.1:10 \
+DEF:d_ts=/home/pi/furnace/br_zone.rrd:ts:AVERAGE \
+DEF:d_tr=/home/pi/furnace/br_zone.rrd:tr:AVERAGE \
+DEF:d_tp=/home/pi/furnace/br_zone.rrd:tp:AVERAGE \
+DEF:d_tp_min=/home/pi/furnace/br_zone.rrd:tp:MIN \
+DEF:d_tp_max=/home/pi/furnace/br_zone.rrd:tp:MAX \
+DEF:d_d_min=/home/pi/furnace/br_zone.rrd:d:MIN \
+DEF:d_d=/home/pi/furnace/br_zone.rrd:d:AVERAGE \
+CDEF:c_d_base=d_d_min,14,+ \
+CDEF:c_d_area=d_d,10,* \
+LINE1:d_tp_min#0000FF:"TP Min" \
+LINE1:d_tp_max#FF0000:"TP Max" \
+-t"Bedroom Zone Valve - 36 days"
+
+rrdtool graph /home/pi/furnace/brz_year.png -a PNG --width 1300 --height 800 \
+--end now --start end-16months \
+-u 25 -l 15 -r \
+--vertical-label 'C' \
+--y-grid 0.1:10 \
+DEF:d_ts=/home/pi/furnace/br_zone.rrd:ts:AVERAGE \
+DEF:d_tr=/home/pi/furnace/br_zone.rrd:tr:AVERAGE \
+DEF:d_tp=/home/pi/furnace/br_zone.rrd:tp:AVERAGE \
+DEF:d_d_min=/home/pi/furnace/br_zone.rrd:d:MIN \
+DEF:d_d=/home/pi/furnace/br_zone.rrd:d:AVERAGE \
+CDEF:c_d_base=d_d_min,14,+ \
+CDEF:c_d_area=d_d,10,* \
+LINE1:c_d_base#00FF00 \
+AREA:c_d_area#00FF00:"Damper Open":STACK \
+LINE1:d_ts#000000:"TS" \
+LINE1:d_tr#0000FF:"TR" \
+LINE1:d_tp#FF0000:"TP" \
+-t"Bedroom Zone Valve - 16 months"
+
+

@@ -1,0 +1,101 @@
+#!/usr/bin/perl
+
+$| = 1;
+
+use File::stat;
+use LWP::Simple;
+use Time::Local;
+
+sub trim($);
+sub getRiverLevel($);
+
+$url = sprintf "http://www.winnipeg.ca/publicworks/pwddata/riverlevels";
+$content = "";  # raw http content
+
+open (logfile, '>>'."/home/pi/furnace/riverLevel.txt");
+
+#################################
+# Main loop
+#################################
+
+eval {
+ $content = get($url);
+}; warn $@ if $@;
+
+	$river_level = getRiverLevel("West Perimeter");
+	if ($river_level < 200) {
+		$river_level = "U";
+		print logfile "West Perimeter reading invalid\n";
+	}
+
+	$chwd = getRiverLevel("Charleswood");
+	if ($chwd < 200 ) {
+		$chwd = "U";
+		print logfile "Charleswood reading invalid\n";
+	}
+
+	$stj = getRiverLevel("St. James");
+	if ($stj < 200 ) {
+		$stj = "U";
+		print logfile "St.James reading invalid\n";
+	}
+
+	$mary = getRiverLevel("Maryland");
+	if ($mary < 200 ) {
+		$mary = "U";
+		print logfile "Maryland reading invalid\n";
+	}
+
+	$osb = getRiverLevel("Osborne");
+	if ($osb < 200 ) {
+		$osb = "U";
+		print logfile "Osborne reading invalid\n";
+	}
+
+	$rrd_time = time;
+	system( "rrdtool update /home/pi/furnace/riverLevel.rrd $rrd_time:$river_level");
+	system( "rrdtool update /home/pi/furnace/riverLevels.rrd $rrd_time:$riverl_level:$river_level:$chwd:$stj:$mary:$osb");
+	#print logfile  "rrdtool update /home/pi/furnace/riverLevels.rrd $rrd_time:$river_level:$chwd:$stj:$mary:$osb";
+
+close (logfile);
+
+#################################
+# trim
+#################################
+sub trim($) {
+ my $str = shift;
+ $str =~ s/^\s+//;
+ $str =~ s/\s+$//;
+ return $str;
+}
+
+##################################
+# getRiverLevel
+# Line 1 = West Perimeter
+# Line 2 = height in feet
+# Line 3 = height in meters
+##################################
+sub getRiverLevel($) {
+
+$rllc = 0; #River Level Line Counter
+$temp = 0;
+
+ $first_token = shift;
+ #$first_token = "West Perimeter"; # find this line, then start looking for level
+
+ foreach $line (split /\n/ , $content) {
+
+# If we found the first line, mark and start counting lines
+  if ($rllc > 0 || $line =~ m/$first_token/) {
+   $rllc = $rllc + 1;
+  }
+
+# if we are on line 3, then grab number
+  if ($rllc == 3 ) {
+   $line = trim($line);
+   $line = substr ($line, 24,6); 
+   $temp = $line;
+  }
+ }
+ return $temp;
+}

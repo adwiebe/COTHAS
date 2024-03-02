@@ -1,0 +1,63 @@
+#!/usr/bin/perl
+#
+
+# can I tweet?
+
+use Net::Twitter;
+
+$ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
+
+$obj_tweet = Net::Twitter->new(
+   traits                    => [qw/API::RESTv1_1/],
+   ssl                       => 1,
+   consumer_key              => "A4X3cgQBB3UWLGgXFdUJag",
+   consumer_secret           => "ui8vrbfAnVjCmfIFeZce5T7bjjgCZUCcHU8Es8V44c",
+   access_token              => "101596598-afomOD4MYVuORUopTpXsFXQSCgGiHCPHpdG04iqG",
+   access_token_secret       => "4d7lLkvg4W6oYc23cmCjUjOnulXB5SFGBWbRHzhGus",
+);
+
+sub direct_tweet;
+sub tweet;
+
+my $msg = join(" ", @ARGV);
+
+if (@ARGV[0] eq "d") {
+  &direct_tweet($msg);
+} else {
+  &tweet($msg);
+}
+
+#===========================
+#SUB TO SEND DIRECT MESSSAGE
+#===========================
+sub direct_tweet {
+
+ ( $cmd, $userid, $msg ) = split ( /\s/, $_[0], 3);
+# print "Cmd: ".$cmd." Userid: ".$userid." Msg:".$msg."\n";
+
+ my $result="";
+ eval { $result = $obj_tweet->new_direct_message( $msg,
+  { screen_name	=> $userid } 
+ ); } ;
+
+ if ($@ ) {
+   warn "Twitter direct message failed because: $@\n";
+ } else {
+   print "Done: [".$result."]\n";
+ }
+}
+
+#======================
+#SUB TO POST UPDATE
+#======================
+sub tweet {
+
+ my $result="";
+ eval { $result = $obj_tweet->update($_[0]); } ;
+ if ($@ ) {
+   warn "Twitter udpate failed because: $@\n";
+ } else {
+   print "Done: [".$result."]\n";
+ }
+}
+

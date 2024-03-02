@@ -1,0 +1,18 @@
+echo Generating CO2 Hourly Graphs
+echo `uptime`
+
+rrdtool graph /home/pi/furnace/co2_hour.png -a PNG --width 897 --height 504 \
+--end now --start end-3h \
+--vertical-label 'PPM' \
+DEF:d_ppm=/home/pi/furnace/CO2.rrd:PPM:AVERAGE \
+LINE1:d_ppm#000000:"PPM" \
+-t"CO2 - 3 hours"
+
+
+rrdtool graph /home/pi/furnace/co2_kids.png -a PNG --width 897 --height 504 \
+--start '21:30 06.01.2023' --end '02:00 07.01.2023' \
+--vertical-label 'PPM' \
+DEF:d_ppm=/home/pi/furnace/CO2.rrd:PPM:AVERAGE \
+LINE1:d_ppm#000000:"PPM" \
+-t"CO2 - 4 hours"
+

@@ -1,0 +1,22 @@
+#!/usr/bin/perl
+#
+
+# loop forever
+
+my $procs = `ps -ef | grep logRadiation`;
+print "[$procs]\n";
+
+#if (`ps -ef | grep logRadiation | grep python`) 
+if (index($procs, "python") != -1)
+{
+print "Found records\n";
+} else {
+
+	# restart process
+
+	my $st = time;
+	print "STARTING: $st\n";
+
+	system("mv /home/pi/furnace/logs/Radiation.log /home/pi/furnace/logs/Radiation_$st.log");	
+	system("/home/pi/furnace/logRadiation >> /home/pi/furnace/logs/Radiation.log 2>&1 &") ;
+}

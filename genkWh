@@ -1,0 +1,82 @@
+echo Generating kWh Graphs
+echo `uptime`
+
+rrdtool graph /home/pi/furnace/kWh-year.png -a PNG --width 897 --height 504 \
+--end now --start end-16months \
+--width 1024 --height 600 \
+-u 25 -l 0 --rigid \
+-t"Power usage over past 16 months" \
+DEF:kWh=/home/pi/furnace/kWh.rrd:kWh:AVERAGE \
+DEF:Watts=/home/pi/furnace/powerUsage.rrd:watts:MAX \
+DEF:Eheat=/home/pi/furnace/fm.rrd:Eheat:AVERAGE \
+DEF:Ecool=/home/pi/furnace/fm.rrd:Ecool:AVERAGE \
+CDEF:c_kWh=kWh,1000,/ \
+CDEF:KWatts=Watts,1000,/ \
+AREA:c_kWh#AAAAAA:"Total kWh" \
+AREA:Eheat#AA0000:"Heat kWh" \
+AREA:Ecool#0000AA:"Cool kWh" \
+LINE1:KWatts#FF9999:"Peak kW"
+
+rrdtool graph /home/pi/furnace/test-kWh-month.png -a PNG --width 897 --height 504 \
+--end now --start end-35d \
+-u 25 -l 0 --rigid \
+-t"kWh over past 35 days" \
+DEF:kWh=/home/pi/furnace/kWh.rrd:kWh:AVERAGE \
+DEF:Watts=/home/pi/furnace/powerUsage.rrd:watts:MAX \
+DEF:Eheat=/home/pi/furnace/fm.rrd:Eheat:AVERAGE \
+DEF:Ecool=/home/pi/furnace/fm.rrd:Ecool:AVERAGE \
+CDEF:c_kWh=kWh,1000,/ \
+CDEF:KWatts=Watts,1000,/ \
+AREA:c_kWh#AAAAAA:"kWh" \
+AREA:Eheat#AA0000:"Heat" \
+AREA:Ecool#0000AA:"Cool" \
+LINE1:KWatts#FF9999:"kW"
+
+rrdtool graph /home/pi/furnace/kWh-day.png -a PNG --width 897 --height 504 \
+--end now --start end-36h \
+-u 25 -l 0 --rigid \
+-t"kWh over past 36 hours" \
+DEF:kWh=/home/pi/furnace/kWh.rrd:kWh:AVERAGE \
+DEF:Watts=/home/pi/furnace/powerUsage.rrd:watts:AVERAGE \
+CDEF:c_kWh=kWh,1000,/ \
+CDEF:KWatts=Watts,1000,/ \
+AREA:c_kWh#A0A0A0:"kWh" \
+LINE1:KWatts#FF4D4D:"kW"
+
+rrdtool graph /home/pi/furnace/kWh-month.png -a PNG --width 897 --height 504 \
+--end now --start end-35d \
+-u 25 -l 0 --rigid \
+-t"kWh over past 35 days" \
+DEF:kWh=/home/pi/furnace/kWh.rrd:kWh:AVERAGE \
+DEF:Watts=/home/pi/furnace/powerUsage.rrd:watts:AVERAGE \
+CDEF:c_kWh=kWh,1000,/ \
+CDEF:KWatts=Watts,1000,/ \
+AREA:c_kWh#AAAAAA:"kWh" \
+LINE1:KWatts#FF9999:"kW"
+
+rrdtool graph /home/pi/furnace/kW-minmax-year.png -a PNG --width 897 --height 504 \
+--end now --start end-7months \
+--width 1024 --height 600 \
+-t"Min/max Power usage over past 7 months" \
+DEF:Watts_Max=/home/pi/furnace/powerUsage.rrd:watts:MAX \
+DEF:Watts_Min=/home/pi/furnace/powerUsage.rrd:watts:MIN \
+LINE1:Watts_Min#99FF99:"Min kW" \
+LINE1:Watts_Max#FF9999:"Max kW"
+
+rrdtool graph /home/pi/furnace/kW-min-year.png -a PNG --width 897 --height 504 \
+--end now --start end-7months \
+--width 1024 --height 600 \
+-t"Min/max Power usage over past 7 months" \
+DEF:Watts_Min=/home/pi/furnace/powerUsage.rrd:watts:MIN \
+LINE1:Watts_Min#99FF99:"Min kW" 
+
+rrdtool graph /home/pi/furnace/kWh-min-year.png -a PNG --width 897 --height 504 \
+--end now --start end-7months \
+--width 1024 --height 600 \
+-t"Min/max Power usage over past 7 months" \
+DEF:Watts_Min=/home/pi/furnace/powerUsage.rrd:watts:MIN \
+DEF:kWh=/home/pi/furnace/kWh.rrd:kWh:MIN \
+AREA:kWh#FF9999:"Min kWh" \
+LINE1:Watts_Min#99FF99:"Min kW"
+
+

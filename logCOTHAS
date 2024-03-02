@@ -1,0 +1,656 @@
+#!/usr/bin/perl
+$|++;
+#
+# 2019 - COTHAS
+#
+
+use warnings;
+use 5.010;
+
+use POSIX;
+use Device::SerialPort 0.12;
+use Switch;
+use LWP::Simple;
+use File::stat;
+use Time::Local;
+use Time::HiRes ('sleep');	# fine grain sleep command to minimize busy waiting/polling
+use Data::Dumper;
+
+###################
+#
+# Config parameters
+#
+###################
+$VerMajor = "4";
+$VerMinor = "3";
+
+$HOMEDIR   = "/home/pi/furnace";    # path to data file
+$RRDFILE   = "fm.rrd";              # legacy rrd database
+$PGM_NAME  = "logCOTHAS";           # name of program (ie this file)
+$LOGDIR    = $HOMEDIR."/logs";      # path to data file
+$LOGFILE   = "COTHAS";              # file name to output to
+#$PORT      = "/dev/ttyUSB1";        # port to watch
+$PORT      = "/dev/cothas";        # port to watch
+
+$debug = 0;
+
+#
+# Globals
+my $fh_updateTime = 0;
+my $raw_data;
+my @raw_data_hash;
+
+$f_state = 0;
+$f_start = time;
+$f_stage = 1;
+
+$ac_state = 0;
+$ac_start = time;
+
+$f_halfhour = 0;
+$Wh = 0;
+$Wc = 0;
+
+# get current hour
+($sec,$min,$curr_hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime($f_start);
+
+#Legacy Furnace variables
+my $YwgTemp = 123;
+my $Tup = 123;
+my $Tdown = 123;
+
+####################################
+#
+# Pre declare some useful functions
+#
+#
+####################################
+
+#declare twitter function
+sub tweet;
+
+#declare trim function
+sub trim($);
+
+#declare getWpgTemp();
+sub getWpgTemp();
+
+#declare logGarageOneWire(); - fetches onewire data from ADSB PI in garage.
+sub logGarageOneWire();
+
+#declare cooling calculation - pass in seconds
+sub calcCoolingEnergy;
+
+#declare heating calculation - pass in seconds & stage
+sub calcHeatingEnergy;
+
+#declare auto-update routine to respawn if program updated
+sub respawnIfNew;
+
+#declare CreateLogFile to open logging
+sub CreateLogFile;
+
+#subroutine to obtain, print and return a timestamp.
+sub PrintTimeStamp;
+
+###########################
+#
+# Open/Create log flie
+#
+###########################
+#open log file
+$s_logdate = "000000";
+&CreateLogFile;
+
+
+# Serial Settings
+#print "Opening COM port...\n";
+
+my $ob = Device::SerialPort->new ($PORT) || die "Can't Open $PORT: $!";
+$ob->baudrate(115200)   || die "failed setting baudrate";
+$ob->parity("none")    || die "failed setting parity";
+$ob->databits(8)       || die "failed setting databits";
+$ob->handshake("none") || die "failed setting handshake";
+$ob->write_settings    || die "no settings";
+
+# 2023-12-24 - attempting to removing polling / busy wait CPU burn.
+open(SERIAL, "+>$PORT");
+
+print "port open\n";
+
+sub port_wait {
+	my $count;
+	my $data;
+	my $str = '';
+
+	while(1) {
+		($count, $data) = $ob->read(1);
+		$str .= $data;
+		$str =~ /$_[0]$/m and last;
+	};
+
+	$str =~ s/\r/\n/g;
+
+	if ($debug) {
+		my $newstr = $str;
+		$newstr =~ s/\r/\nRX: /g;
+		print "RX: $newstr\n";
+	}
+
+	return $str;
+}
+
+sub port_readline {
+
+# 2023-12-24 - attempting to removing polling / busy wait CPU burn.
+
+#	my $str = port_wait("\n");
+	my $str = <SERIAL>;
+	$str =~ s/\r/\n/g;
+	$str =~ s/\n//g;
+
+#	print "RX: $str\n";
+
+	return $str;
+}
+
+
+###########################
+#
+# Read OneWire Config files
+#
+###########################
+my %rrd_files;
+my %oneWire_devices;
+
+printf logFile "Reading config: ";
+open FILE1, $HOMEDIR."/COTHAS_rrd.cfg" or die;
+while (my $line=<FILE1>) {
+	chomp $line;
+	(my $fn, my $fd) = split /=/, $line;
+#	(my $fname, $pc) = split /,/, $fd;
+	$rrd_files{$fn} = $fd;
+	printf logFile "r";
+}
+close FILE1;
+
+open FILE1, $HOMEDIR."/COTHAS_oneWire_devices.cfg" or die;
+while (my $line=<FILE1>) {
+	chomp $line;
+	(my $sn, my $dev) = split /=/, $line;
+	$oneWire_devices{$sn} = $dev;
+	printf logFile "1";
+}
+close FILE1;
+printf logFile "\n";
+
+
+
+###########################################
+#
+# Main Loop
+#
+###########################################
+
+while(1) {
+	&respawnIfNew;
+	$l_time = time;
+       	($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime($l_time);
+
+	# There are special things to do one the minute, 1/2 hour, hour, etc
+
+	# On the 1/2 hours (ie: 12:30), go fetch Environment Canada's temp
+	if ($min == 30 && $f_halfhour == 0) {
+                $f_halfhour = 1; 
+                $YwgTemp = getWpgTemp(); # Logs to $RRDFILE
+        } elsif ($min != 30) {
+                $f_halfhour = 0;
+        }
+
+	# Every minute check things (garage onewire) and poke the Arduino, which triggers a scan of oneWire temp
+	# Devices.
+	if ( $sec == 0 ) {
+		logGarageOneWire();
+		$ob->write(" ");
+	}
+
+	$raw_data = port_readline;
+	if (index($raw_data, ",") != -1) {
+		# process
+		%raw_data_hash = map{split /\=/, $_}(split /,/, $raw_data);
+
+		my %out_rrd_files;
+		foreach my $key (keys %raw_data_hash) {
+			if (exists ($oneWire_devices{$key})) {
+				my @devcfg = split /,/ , $oneWire_devices{$key};
+				my @rrdcfg = split /,/ , $rrd_files{$devcfg[0]};
+				my $Temp = $raw_data_hash{ $key };
+				my $tgt_rrd_f = $rrdcfg[0];
+				my $rrd_pos = $devcfg[1];
+				my $ttl_pos = $rrdcfg[1] + 1; #add 1 position for time stame.
+				my $log_dtl = "";
+				if ($#rrdcfg > 1) {
+					$log_dtl = $rrdcfg[2];
+				}
+
+				if ($log_dtl eq "debug") {
+					printf logFile "".$key." is ".$Temp." and will go into file ".$tgt_rrd_f." at pos: ".$rrd_pos." out of ".$ttl_pos." total\n";
+				}
+				if (!exists ($out_rrd_files{ $tgt_rrd_f }) ) {
+					# haven't seen this file before. create new array for total parms.
+					my @parm_array;
+					$parm_array[0] = $ttl_pos;
+					for(my $i = 0; $i < $ttl_pos; $i++) {
+						$parm_array[ $i ] = 'U';
+					}
+					$out_rrd_files{ $tgt_rrd_f } = [@parm_array];
+				}
+				$out_rrd_files{ $tgt_rrd_f } [ $rrd_pos ] = $Temp;
+			} elsif (length($key) > 1) {
+				printf logFile "".$key." is new\n";
+			}
+		}
+
+		# Generate rrdtool update commands.
+		# $l_time for parm 0
+                # system("rrdtool update ".$HOMEDIR."/".$RRDFILE." $rrd_time:U:U:U:$Wh:$Wc");
+
+		while ( my ($k,@v) = each %out_rrd_files ) {
+			my $rrdCmdStr = "rrdtool update ".$HOMEDIR."/".$k." $l_time";
+
+			my @array = @{ $out_rrd_files{$k} };	# dereference array
+			shift @array; # don't care about first [0] element
+			foreach my $n (@array) {
+				$rrdCmdStr = $rrdCmdStr.":$n";
+			}
+			system($rrdCmdStr);
+			print $rrdCmdStr."\n";
+		}
+
+		# Handle other key/value pairs that might be sent from Arduino...
+		# Only want filter data every minute. But on the 0 second, the 
+		# OneWire temp probe data is present and filter data isn't.
+		if (exists ($raw_data_hash{"F"}) && $sec == 30 ) {
+			my $filterLife = $raw_data_hash{"F"};
+			system("rrdtool update ".$HOMEDIR."/filterLife.rrd ".$l_time.":".$filterLife);
+			system("/home/pi/furnace/manageFilter $filterLife");
+			#printf logFile "".$filterLife."\n";
+		}
+####
+# Track heating state change
+####
+		if (exists ($raw_data_hash{"H"}) ) {
+			if ($raw_data_hash{"H"} eq "0") {
+                        	if ($f_state == 1) {
+                                	$f_state = 0;
+                                	$f_end = &PrintTimeStamp - $f_start;
+                                	print logFile "Heating turned off., " . $f_end . " Old Wh=".$Wh." Current stage=".$f_stage."\n";
+
+                                	$Wh += &calcHeatingEnergy($f_end, $f_stage);
+
+                                	###############################
+                                	print logFile " New Wh=".$Wh." and stage=".$f_stage."\n";
+                        	}
+			} else {
+                        	if ($f_state == 0) {
+                                	$f_state = 1;
+                                	$f_stage = 1;   #starting stage
+                                	$f_start = &PrintTimeStamp;
+                                	# print logFile ", Heating turned on., 0\n";
+                        	}
+			}
+		}
+
+####
+# Track A/C state change
+####
+		if (exists ($raw_data_hash{"A"}) ) {
+			if ($raw_data_hash{"A"} eq "0") {
+	                        if ($ac_state == 1) {
+                               		$ac_state = 0;
+                               		$ac_end = &PrintTimeStamp - $ac_start;
+                               		# print logFile ", Cooling turned off., " . $ac_end . "\n";
+
+                               		#$Wc = $Wc + ($ac_end * 0.0004);
+                               		$Wc += &calcCoolingEnergy($ac_end);
+                       		}
+			} else {
+				if ($ac_state == 0) {
+					$ac_state = 1;
+					$ac_start = &PrintTimeStamp;
+					# print logFile ", Cooling turned on., 0\";
+				}
+			}
+		}
+	}
+
+        # test for new hour
+        # if new hour, print kWh summary and reset current hour
+        if ($curr_hour != $hour) {
+                if ($ac_state == 1) {
+                        $ac_end = $l_time - $ac_start;
+                        $ac_start = $l_time;
+                        $Wc += &calcCoolingEnergy($ac_end);
+                }
+                if ($f_state == 1) {
+                        $f_end = $l_time - $f_start;
+                        $f_start = $l_time;
+
+                        print logFile "Hour change. Still heating. Current seconds=".$f_end." current stage=".$f_stage."\n";
+                        $Wh += &calcHeatingEnergy($f_end, $f_stage);
+                        print logFile "Hour change. Post energy calculation Wh=".$Wh." Stage value=".$f_stage."\n";
+                }
+
+                $rrd_time = time;
+                ($gwt_sec, $gwt_min, $gwt_hr, $gwt_md, $gwt_mon, $gwt_yr, $gwt_wday, $gwt_yday, $gwt_dst) = localtime($rrd_time);
+                $rrd_time = mktime (0,0,$gwt_hr, $gwt_md, $gwt_mon, $gwt_yr, $gwt_wday, $gwt_yday);
+                system("rrdtool update ".$HOMEDIR."/".$RRDFILE." $rrd_time:U:U:U:$Wh:$Wc");
+
+                # generate text message for log & twitter
+                $rounded_Wh = sprintf("%.2f", $Wh);
+                $rounded_Wc = sprintf("%.2f", $Wc);
+                $log_entry = "COTHAS Stats for hour:".$curr_hour." Ywg Temp:".$YwgTemp."C Heating:".$rounded_Wh."kWh Cooling:".$rounded_Wc."kWh. For more details: http://flyinglow.ca/furnace\n";
+
+                print logFile $log_entry;
+                &tweet($log_entry);
+
+                $curr_hour = $hour;
+                $Wh = 0;
+                $Wc = 0;
+	}
+
+# Chill for a bit. 
+	sleep(0.5);	# sleep for 1/2 second
+
+####
+# Inner debug while loop closing brace
+####
+}
+
+################################################################################
+################################################################################
+#
+# SUBROUTINES
+#
+################################################################################
+################################################################################
+
+#trim subroutine
+sub trim($) {
+ my $str = shift;
+ $str =~ s/^\s+//;
+ $str =~ s/\s+$//;
+ return $str;
+}
+
+#getWpgTemp subroutine
+sub getWpgTemp() {
+ $temp = 1000;
+
+eval {
+ $url = sprintf "http://weather.gc.ca/rss/city/mb-38_e.xml";
+ $content = get($url);
+
+ $pattern = "\&deg;C";
+
+ foreach $line (split /\n/ , $content) {
+  if ($line =~ m/$pattern/ && $line =~ m/Temperature/) {
+   $line = trim($line);
+   $line = substr ($line, index($line, "Temperature")+17);
+   $line = substr ($line, 0, index($line, $pattern));
+   $temp = trim($line);
+  }
+ }
+ $rrd_time = time;
+
+# Change time to 15 minutes after current hour. If read at 2:30PM, record as if 2:05
+# Actual temperatures and kWh readings will be recorded on the hour precisely
+
+ ($gwt_sec, $gwt_min, $gwt_hr, $gwt_md, $gwt_mon, $gwt_yr, $gwt_wday, $gwt_yday, $gwt_dst) = localtime($rrd_time);
+ $rrd_time = mktime (0,15,$gwt_hr, $gwt_md, $gwt_mon, $gwt_yr, $gwt_wday, $gwt_yday);
+
+ if ($temp < 1000) {
+  print logFile "EC Temp:".$temp."\n";
+  system("rrdtool update ".$HOMEDIR."/".$RRDFILE." $rrd_time:$temp:U:U:U:U");
+ }
+
+ }; warn $@ if $@;
+
+ return $temp;
+}
+
+# sub routine to tweet a status
+# code from here has been moved to the script
+# /home/pi/furnace/tweet
+# This enables better management of code
+sub tweet {
+
+ system("/home/pi/furnace/tweet $_[0]");
+
+}
+
+#declare cooling calculation
+sub calcCoolingEnergy
+{
+        my $energy = $_[0] * 0.0004;    # should be config item
+
+        return $energy;
+}
+
+#declare heating calculation
+sub calcHeatingEnergy #($f_seconds, $f_stage);
+{
+
+        # November 12, 2013 - bug detected where 3rd stage not reached, and re-entry after hour cross incorrectly handled.
+        #
+        # $f_stage is passed by reference and is returned to the caller to be passed back in. This covers the HVAC running
+        # over an Hour marker.
+        #
+        #
+        # $_[0] = seconds
+        # $_[1] = stage
+
+        $energy = 0;
+        $runSeconds = $_[0];
+
+        ###############################
+        # Calc kWh
+        #
+
+
+        # STAGE 1
+
+        if ($runSeconds > 0)
+        {
+                $energy = $runSeconds * 0.00133;
+        }
+
+        if ($runSeconds >= 60 && $_[1] == 1)
+        {
+                $runSeconds -= 60;
+                $_[1] = 2;
+        }
+
+        print logFile "Post stage 1. RunSeconds = ".$runSeconds." energy = ".$energy." stage = ".$_[1]."\n";
+
+
+        # STAGE 2 (kWs includes faster fan speed)
+
+        if ($runSeconds > 0 && $_[1] >= 2)
+        {
+                $energy += $runSeconds * 0.00135;
+        }
+
+        if ($runSeconds >= 60 && $_[1] == 2)
+        {
+                $runSeconds -= 60;
+                $_[1] = 3;
+        }
+
+        print logFile "Post stage 2. RunSeconds = ".$runSeconds." energy = ".$energy." stage = ".$_[1]."\n";
+
+
+        # STAGE 3
+
+        if ($runSeconds > 0 && $_[1] == 3)
+        {
+                $energy += ($runSeconds * 0.00133);
+        }
+
+        print logFile "Post stage 3. RunSeconds = ".$runSeconds." energy = ".$energy." stage = ".$_[1]."\n";
+
+        return $energy;
+}
+
+sub CreateLogFile {
+        ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime(time);
+        $s_newdate = sprintf "%02d%02d%02d", $mon+1, $mday, $year-100;
+
+        # at midnight close current file and open new file.
+        # before closing check to see if furnace / ac is running at midnight
+        # if so, 'turn it off', close log file, create new, 'turn it on'
+        # probably not ideal, but should work.
+        if ($s_logdate != $s_newdate) {
+                if ($f_state == 1)
+                {
+                        $clf_ts = &PrintTimeStamp(1);
+                        $f_end = $clf_ts - $f_start;
+                        print logFile ", Heating turned off(EOF)., " . $f_end . "\n";
+                        $f_start = $clf_ts;
+                }
+                if ($ac_state == 1)
+                {
+                        $clf_ts = &PrintTimeStamp(1);
+                        $ac_end = $clf_ts - $ac_start;
+                        print logFile ", Cooling turned off(EOF)., " . $ac_end . "\n";
+                        $ac_start = $clf_ts;
+                }
+
+                $s_logdate = $s_newdate;
+                close (logFile);
+                open (logFile, '>>'.$LOGDIR."/".$LOGFILE.$s_logdate.".log");
+
+                &PrintTimeStamp(1);
+                print logFile ", FurnaceLog Version $VerMajor.$VerMinor\n";
+
+                if ($f_state == 1)
+                {
+                        $f_start = &PrintTimeStamp(1);
+                        print logFile ", Heating turned on (SOF)., 0\n";
+                }
+                if ($ac_state == 1)
+                {
+                        $ac_start = &PrintTimeStamp(1);
+                        print logFile ", Cooling turned on (SOF)., 0\n";
+                }
+                #make file handle HOT to prevent buffering
+                select((select(logFile), $|=1)[0]);
+        }
+}
+
+#subroutine to obtain, print and return a timestamp.
+sub PrintTimeStamp {
+        $l_time = time;
+
+        ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime($l_time);
+	if ( $_[0] ) {
+        	printf logFile "%4d-%02d-%02d %02d:%02d:%02d", $year+1900,$mon+1,$mday,$hour,$min,$sec;
+	}
+
+        return $l_time;
+}
+
+#######################################
+#
+# respawn if new
+#
+# Check timestamp of this program's file
+# if it's newer then what we stored at
+# startup, then die. A crontab job will
+# restart us in about a minute.
+#
+########################################
+
+sub respawnIfNew {
+	open(my $fh, "<", $HOMEDIR."/".$PGM_NAME) or die "Cannot open read handle to myself";
+	if ($fh_updateTime == 0) {
+		print "Initiating respawn file handle time.\n";
+		$fh_updateTime = stat($fh)->mtime;
+		#&tweet("d ehud42 Starting furnaceMonitor with file stamp: $fh_updateTime with current time stamp=$f_start");
+	} else {
+		my $fh_lastUpdateTime = stat($fh)->mtime;
+		if ($fh_updateTime != $fh_lastUpdateTime) {
+			die "A new version detected. Waiting for cron to respawn me\n";
+		}
+	}
+	close($fh);
+}
+
+
+
+#log Garage One wire
+sub logGarageOneWire() {
+        my $url = sprintf "http://192.168.1.108/onewire.html";
+        my $content = get($url);
+	if (!defined($content)) {
+		print "$url undefined...\n";
+		return;
+	}
+
+        $content =~ tr/\n/,/;   # replace newline with comma
+
+
+        # if content has at least one "28-" then we're golden
+        # else, just give up and exit.
+
+        if (index($content, "28-") == -1) {
+                print "nothing here...\n";
+                return;
+        }
+
+        %raw_data_hash = map{split /\=/, $_}(split /,/, $content);
+
+        my %out_rrd_files;
+        foreach my $key (keys %raw_data_hash) {
+                if (exists ($oneWire_devices{$key})) {
+                        my @devcfg = split /,/ , $oneWire_devices{$key};
+                        my @rrdcfg = split /,/ , $rrd_files{$devcfg[0]};
+                        my $Temp = $raw_data_hash{ $key };
+                        my $tgt_rrd_f = $rrdcfg[0];
+                        my $rrd_pos = $devcfg[1];
+                        my $ttl_pos = $rrdcfg[1] + 1; #add 1 position for time stame.
+                        my $log_dtl = "";
+                        if ($#rrdcfg > 1) {
+                                $log_dtl = $rrdcfg[2];
+                        }
+
+                        if (!exists ($out_rrd_files{ $tgt_rrd_f }) ) {
+                                # haven't seen this file before. create new array for total parms.
+                                my @parm_array;
+                                $parm_array[0] = $ttl_pos;
+                                for(my $i = 0; $i < $ttl_pos; $i++) {
+                                        $parm_array[ $i ] = 'U';
+                                }
+                                $out_rrd_files{ $tgt_rrd_f } = [@parm_array];
+                        }
+                        $out_rrd_files{ $tgt_rrd_f } [ $rrd_pos ] = $Temp;
+                } elsif (length($key) > 1) {
+                        printf logFile "".$key." is new\n";
+                }
+        }
+
+        while ( my ($k,@v) = each %out_rrd_files ) {
+                my $rrdCmdStr = "rrdtool update ".$HOMEDIR."/".$k." $l_time";
+
+                my @array = @{ $out_rrd_files{$k} };    # dereference array
+                shift @array; # don't care about first [0] element
+                foreach my $n (@array) {
+                        $rrdCmdStr = $rrdCmdStr.":$n";
+                }
+                system($rrdCmdStr);
+                print $rrdCmdStr."\n";
+        }
+
+}
+
+

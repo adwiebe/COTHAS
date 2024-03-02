@@ -1,0 +1,72 @@
+#!/usr/bin/perl
+
+$| = 1;
+
+use File::stat;
+use LWP::Simple;
+use Time::Local;
+
+sub trim($);
+sub getRiverLevel();
+
+open (logfile, '>>'."/home/alex/furnace/riverLevel.txt");
+
+#################################
+# Main loop
+#################################
+
+#while(1) {
+
+	$river_level = getRiverLevel();
+	$rrd_time = time;
+	system( "rrdtool update /home/alex/furnace/riverLevel.rrd $rrd_time:$river_level");
+	#print logfile "rrdtool update /home/alex/furnace/riverLevel.rrd $rrd_time:$river_level ; echo sysed\n";
+	#print "rrdtool update riverLevel.rrd $rrd_time:$river_level\n";
+
+	#sleep(30);	
+#}
+
+#################################
+# trim
+#################################
+sub trim($) {
+ my $str = shift;
+ $str =~ s/^\s+//;
+ $str =~ s/\s+$//;
+ return $str;
+}
+
+##################################
+# getRiverLevel
+##################################
+sub getRiverLevel() {
+
+eval{
+ $url = sprintf "http://www.winnipeg.ca/publicworks/pwddata/riverlevels";
+ $content = get($url);
+
+# Line 1 = West Perimeter
+# Line 2 = height in feet
+# Line 3 = height in meters
+$rllc = 0; #River Level Line Counter
+
+ $first_token = "West Perimeter"; # find this line, then start looking for level
+
+
+ foreach $line (split /\n/ , $content) {
+
+# If we found the first line, mark and start counting lines
+  if ($rllc > 0 || $line =~ m/$first_token/) {
+   $rllc = $rllc + 1;
+  }
+
+# if we are on line 3, then grab number
+  if ($rllc == 3 ) {
+   $line = trim($line);
+   $line = substr ($line, 24,6); 
+   $temp = $line;
+  }
+ }
+} ; warn $@ if $@; # really bad supression of all errors, warnings
+ return $temp;
+}

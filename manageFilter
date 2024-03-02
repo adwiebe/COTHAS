@@ -1,0 +1,64 @@
+#!/usr/bin/perl
+#
+# Track filter value and tweet warning when needs changing
+#
+# Read from config file:
+#  Threshold
+#  High sampels (When ttl # samples in period that exceed threshold equals High Samples, then tweet)
+#  Period (Number of samples in total
+
+my $msg = join(" ", @ARGV);
+
+#open data file and read into sample array
+
+open my $fh, '<', "/home/pi/furnace/manageFilter.cfg" or die "Cannot open cfg/data file: $!";
+@sample = <$fh>;
+close $fh;
+
+#drop newlines
+chomp(@sample);
+
+#extract configuration values
+$threshold = shift(@sample);
+$hc = shift(@sample);
+$tc = shift(@sample);
+
+#if remaining list of values is a large enough sample size,
+#remove oldest (first) sample
+if (scalar(@sample) >= $tc) {
+	shift(@sample);
+}
+
+push (@sample, $msg);
+
+$i = 0;
+foreach (@sample) {
+	$n = $_;
+#	print "$n\n";
+	if ($n > $threshold) {
+		$i++;
+	}
+}
+
+$pc = $i / $hc * 100;
+$cfMsg =  "$i samples were over $threshold. Filter is $pc% used. If $i is greater than $hc I shall call for help";
+print "$cfMsg\n";
+
+if ($i > $hc) {
+	print "HALP! (ok, replace with tweet)\n";
+	system("/home/pi/furnace/tweet d ehud42 $cfMsg");
+	@sample = ();
+}
+
+#restore (put on front) conf values and save
+unshift(@sample,$tc);
+unshift(@sample,$hc);
+unshift(@sample,$threshold);
+open $fh, '>', "/home/pi/furnace/manageFilter.cfg" or die "Cannot open cfg for writing: $!";
+
+foreach (@sample) {
+	print $fh "$_\n";
+}
+
+close $fh;
+

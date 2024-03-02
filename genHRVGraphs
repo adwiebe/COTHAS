@@ -1,0 +1,61 @@
+echo Generating HRV Graphs
+echo `uptime`
+
+rrdtool graph /home/pi/furnace/hrv-delta.png -a PNG --width 897 --height 504 \
+--end now --start end-36h \
+-t"Temperature Delta in HRV" \
+DEF:Tfin=/home/pi/furnace/hrvTemp.rrd:Tfin:AVERAGE \
+DEF:Tfout=/home/pi/furnace/hrvTemp.rrd:Tfout:AVERAGE \
+DEF:Tsin=/home/pi/furnace/hrvTemp.rrd:Tsin:AVERAGE \
+DEF:Tsout=/home/pi/furnace/hrvTemp.rrd:Tsout:AVERAGE \
+CDEF:F_delta=Tfout,Tfin,- \
+CDEF:S_delta=Tsout,Tsin,- \
+CDEF:netDelta=S_delta,F_delta,+ \
+LINE1:F_delta#00FF00:"Fresh air" \
+LINE1:S_delta#FF0000:"Stale air" \
+LINE1:netDelta#000000:"Net delta" \
+HRULE:0#000000
+
+rrdtool graph /home/pi/furnace/hrvday.png -a PNG --width 897 --height 504 \
+--end now --start end-36h \
+--vertical-label 'C' \
+-u 40 -l -40 \
+DEF:Tfout=/home/pi/furnace/hrvTemp.rrd:Tfout:AVERAGE \
+DEF:Tfin=/home/pi/furnace/hrvTemp.rrd:Tfin:AVERAGE \
+DEF:Tsin=/home/pi/furnace/hrvTemp.rrd:Tsin:AVERAGE \
+DEF:Tsout=/home/pi/furnace/hrvTemp.rrd:Tsout:AVERAGE \
+LINE1:Tfin#00FFFF:"HRV Fresh-in" \
+LINE1:Tfout#00FF00:"HRV Fresh-out" \
+LINE1:Tsin#FF00FF:"HRV Stale-in" \
+LINE1:Tsout#FF0000:"HRV Stale-out" \
+-t"Last 36 hours"
+
+rrdtool graph /home/pi/furnace/hrvweek.png -a PNG --width 897 --height 504 \
+--end now --start end-8d \
+--vertical-label 'C' \
+-u 40 -l -40 \
+DEF:Tfout=/home/pi/furnace/hrvTemp.rrd:Tfout:AVERAGE \
+DEF:Tfin=/home/pi/furnace/hrvTemp.rrd:Tfin:AVERAGE \
+DEF:Tsin=/home/pi/furnace/hrvTemp.rrd:Tsin:AVERAGE \
+DEF:Tsout=/home/pi/furnace/hrvTemp.rrd:Tsout:AVERAGE \
+LINE1:Tfin#00FFFF:"HRV Fresh-in" \
+LINE1:Tfout#00FF00:"HRV Fresh-out" \
+LINE1:Tsin#FF00FF:"HRV Stale-in" \
+LINE1:Tsout#FF0000:"HRV Stale-out" \
+-t"Last 8 days"
+
+rrdtool graph /home/pi/furnace/hrvmonth.png -a PNG --width 897 --height 504 \
+--end now --start end-35d \
+--vertical-label 'C' \
+-u 40 -l -40 \
+DEF:Tfout=/home/pi/furnace/hrvTemp.rrd:Tfout:AVERAGE \
+DEF:Tfin=/home/pi/furnace/hrvTemp.rrd:Tfin:AVERAGE \
+DEF:Tsin=/home/pi/furnace/hrvTemp.rrd:Tsin:AVERAGE \
+DEF:Tsout=/home/pi/furnace/hrvTemp.rrd:Tsout:AVERAGE \
+LINE1:Tfin#00FFFF:"HRV Fresh-in" \
+LINE1:Tfout#00FF00:"HRV Fresh-out" \
+LINE1:Tsin#FF00FF:"HRV Stale-in" \
+LINE1:Tsout#FF0000:"HRV Stale-out" \
+-t"Last 35 days"
+
+

@@ -1,0 +1,140 @@
+echo Generating CO2 Graphs
+echo `uptime`
+
+rrdtool graph /home/pi/furnace/co2_day.png -a PNG --width 897 --height 504 \
+--end now --start end-36h \
+-u 1400 -l 400 -r \
+--vertical-label 'PPM' \
+--units-exponent 0 \
+--left-axis-format %4.0lf \
+--right-axis 0.05:-10 --right-axis-label 'C / RH' \
+DEF:d_ppm=/home/pi/furnace/CO2.rrd:PPM:AVERAGE \
+DEF:d_rh=/home/pi/furnace/CO2.rrd:RH:AVERAGE \
+DEF:d_tc=/home/pi/furnace/CO2.rrd:TC:AVERAGE \
+DEF:d_hrv=/home/pi/furnace/CO2.rrd:HRV:AVERAGE \
+DEF:d_hrv_min=/home/pi/furnace/CO2.rrd:HRV:MIN \
+DEF:d_fan_min=/home/pi/furnace/CO2.rrd:FAN:MIN \
+DEF:d_fan=/home/pi/furnace/CO2.rrd:FAN:AVERAGE \
+CDEF:c_ppm=d_ppm,1,* \
+CDEF:c_rh=d_rh,10,+,0.05,/ \
+CDEF:c_tc=d_tc,10,+,0.05,/ \
+CDEF:c_hrv=d_hrv,2,*,900,* \
+CDEF:c_fan=d_fan,900,* \
+CDEF:c_fan_base=d_fan_min,1200,+ \
+CDEF:c_fan_area=d_fan,100,* \
+CDEF:c_hrv_base=d_hrv_min,1300,+ \
+CDEF:c_hrv_area=d_hrv,100,* \
+LINE1:c_fan_base#00FFFF \
+AREA:c_fan_area#00FFFF:"Fan":STACK \
+LINE1:c_hrv_base#00FF00 \
+AREA:c_hrv_area#00FF00:"HRV":STACK \
+LINE1:c_ppm#000000:"PPM" \
+LINE1:c_rh#0000FF:"RH" \
+LINE1:c_tc#FF0000:"C" \
+-t"CO2 - 36 hours"
+
+rrdtool graph /home/pi/furnace/co2_week.png -a PNG --width 897 --height 504 \
+--end now --start end-10d \
+-u 1400 -l 400 -r \
+--vertical-label 'PPM' \
+--units-exponent 0 \
+--left-axis-format %4.0lf \
+--right-axis 0.05:-10 --right-axis-label 'C / RH' \
+DEF:d_ppm=/home/pi/furnace/CO2.rrd:PPM:AVERAGE \
+DEF:d_rh=/home/pi/furnace/CO2.rrd:RH:AVERAGE \
+DEF:d_tc=/home/pi/furnace/CO2.rrd:TC:AVERAGE \
+DEF:d_hrv=/home/pi/furnace/CO2.rrd:HRV:MAX \
+DEF:d_hrv_min=/home/pi/furnace/CO2.rrd:HRV:MIN \
+DEF:d_fan_min=/home/pi/furnace/CO2.rrd:FAN:MIN \
+DEF:d_fan=/home/pi/furnace/CO2.rrd:FAN:AVERAGE \
+CDEF:c_ppm=d_ppm,1,* \
+CDEF:c_rh=d_rh,10,+,0.05,/ \
+CDEF:c_tc=d_tc,10,+,0.05,/ \
+CDEF:c_hrv=d_hrv,2,*,900,* \
+CDEF:c_fan=d_fan,900,* \
+CDEF:c_fan_base=d_fan_min,1200,+ \
+CDEF:c_fan_area=d_fan,100,* \
+CDEF:c_hrv_base=d_hrv_min,1300,+ \
+CDEF:c_hrv_area=d_hrv,100,* \
+LINE1:c_fan_base#00FFFF \
+AREA:c_fan_area#00FFFF:"Fan":STACK \
+LINE1:c_hrv_base#00FF00 \
+AREA:c_hrv_area#00FF00:"HRV":STACK \
+LINE1:c_ppm#000000:"PPM" \
+LINE1:c_rh#0000FF:"RH" \
+LINE1:c_tc#FF0000:"C" \
+-t"CO2 - 10 days"
+
+rrdtool graph /home/pi/furnace/co2_month.png -a PNG --width 897 --height 504 \
+--end now --start end-40d \
+-u 1400 -l 400 -r \
+--vertical-label 'PPM' \
+--units-exponent 0 \
+--left-axis-format %4.0lf \
+--right-axis 0.05:-10 --right-axis-label 'C / RH' \
+DEF:d_ppm=/home/pi/furnace/CO2.rrd:PPM:AVERAGE \
+DEF:d_rh=/home/pi/furnace/CO2.rrd:RH:AVERAGE \
+DEF:d_tc=/home/pi/furnace/CO2.rrd:TC:AVERAGE \
+DEF:d_hrv=/home/pi/furnace/CO2.rrd:HRV:MAX \
+DEF:d_hrv_min=/home/pi/furnace/CO2.rrd:HRV:MIN \
+DEF:d_fan_min=/home/pi/furnace/CO2.rrd:FAN:MIN \
+DEF:d_fan=/home/pi/furnace/CO2.rrd:FAN:AVERAGE \
+CDEF:c_ppm=d_ppm,1,* \
+CDEF:c_rh=d_rh,10,+,0.05,/ \
+CDEF:c_tc=d_tc,10,+,0.05,/ \
+CDEF:c_hrv=d_hrv,2,*,900,* \
+CDEF:c_fan=d_fan,900,* \
+CDEF:c_fan_base=d_fan_min,1200,+ \
+CDEF:c_fan_area=d_fan,100,* \
+CDEF:c_hrv_base=d_hrv_min,1300,+ \
+CDEF:c_hrv_area=d_hrv,100,* \
+LINE1:c_fan_base#00FFFF \
+AREA:c_fan_area#00FFFF:"Fan":STACK \
+LINE1:c_hrv_base#00FF00 \
+AREA:c_hrv_area#00FF00:"HRV":STACK \
+LINE1:c_ppm#000000:"PPM" \
+LINE1:c_rh#0000FF:"RH" \
+-t"CO2 - 40 days"
+
+rrdtool graph /home/pi/furnace/co2_year.png -a PNG --width 897 --height 504 \
+--end now --start end-400d \
+-u 1400 -l 400 -r \
+--vertical-label 'PPM' \
+--units-exponent 0 \
+--left-axis-format %4.0lf \
+--right-axis 0.05:-10 --right-axis-label 'C / RH' \
+DEF:d_ppm=/home/pi/furnace/CO2.rrd:PPM:AVERAGE \
+DEF:d_rh=/home/pi/furnace/CO2.rrd:RH:AVERAGE \
+DEF:d_tc=/home/pi/furnace/CO2.rrd:TC:AVERAGE \
+DEF:d_hrv=/home/pi/furnace/CO2.rrd:HRV:MAX \
+DEF:d_hrv_min=/home/pi/furnace/CO2.rrd:HRV:MIN \
+DEF:d_fan_min=/home/pi/furnace/CO2.rrd:FAN:MIN \
+DEF:d_fan=/home/pi/furnace/CO2.rrd:FAN:AVERAGE \
+CDEF:c_ppm=d_ppm,1,* \
+CDEF:c_rh=d_rh,10,+,0.05,/ \
+CDEF:c_tc=d_tc,10,+,0.05,/ \
+CDEF:c_hrv=d_hrv,2,*,900,* \
+CDEF:c_fan=d_fan,900,* \
+CDEF:c_fan_base=d_fan_min,1200,+ \
+CDEF:c_fan_area=d_fan,100,* \
+CDEF:c_hrv_base=d_hrv_min,1300,+ \
+CDEF:c_hrv_area=d_hrv,100,* \
+LINE1:c_fan_base#00FFFF \
+AREA:c_fan_area#00FFFF:"Fan":STACK \
+LINE1:c_hrv_base#00FF00 \
+AREA:c_hrv_area#00FF00:"HRV":STACK \
+LINE1:c_ppm#000000:"PPM" \
+LINE1:c_rh#0000FF:"RH" \
+-t"CO2 - Yearish"
+
+rrdtool graph /home/pi/furnace/co2_range.png -a PNG --width 897 --height 504 \
+--end now --start end-40d \
+DEF:d_ppm_min=/home/pi/furnace/CO2.rrd:PPM:MIN \
+DEF:d_ppm_max=/home/pi/furnace/CO2.rrd:PPM:MAX \
+DEF:d_ppm_avg=/home/pi/furnace/CO2.rrd:PPM:AVERAGE \
+CDEF:c_ppm_max=d_ppm_max,d_ppm_min,- \
+LINE1:d_ppm_min#CCCCCC:"min" \
+AREA:c_ppm_max#CCCCCC:"max":STACK \
+LINE1:d_ppm_avg#FF0000:"avg"
+
+

@@ -23,10 +23,10 @@ use Data::Dumper;
 $VerMajor = "1";
 $VerMinor = "0";
 
-print $VerMajor.".".$VerMinor."\n";
+# print $VerMajor.".".$VerMinor."\n";
 
-while (1) {
-	print "Scan for devices... ";
+# while (1) {
+# 	print "Scan for devices... ";
 	
 	$devPath = "/sys/bus/w1/devices";
 	opendir my $dir, $devPath or die "no open dir: $1";
@@ -35,10 +35,10 @@ while (1) {
 
 	my $devCnt = scalar @files;
 
-	print $devCnt."\n";
+#	print $devCnt."\n";
 
 	foreach $dev ( @files ) {
-		print "$dev = ";
+		print "$dev,";
 		my $devHandle = $devPath."/".$dev."/w1_slave";
 		open file1, $devHandle or die "Bork: $devHandle";
 		my $devCRC = <file1>;
@@ -48,5 +48,5 @@ while (1) {
 		print $devVal."\n";
 		close file1; 
 	}
-	sleep(60);
-}
+#	sleep(60);
+#}
